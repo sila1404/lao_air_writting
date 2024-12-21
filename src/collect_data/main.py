@@ -63,7 +63,7 @@ def main():
     # Calculate drawing area in webcam frame (maintaining aspect ratio)
     aspect_ratio = 1.0  # square canvas
     if webcam_height < webcam_width:
-        drawing_height = int(webcam_height * 0.4)  # 40% of height
+        drawing_height = int(webcam_height * 0.45)  # 45% of height
         drawing_width = int(drawing_height * aspect_ratio)
     else:
         drawing_width = int(webcam_width * 0.4)  # 40% of width
