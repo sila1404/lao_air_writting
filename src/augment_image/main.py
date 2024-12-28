@@ -47,10 +47,10 @@ def augment_images(input_folder: str, output_folder: str) -> None:
 
     # Define augmentation iterations
     aug_iterations = {
-        "rotated": 20,
-        "width_shifted": 10,
-        "height_shifted": 10,
-        "zoomed": 10,
+        "rotated": 40,
+        "width_shifted": 20,
+        "height_shifted": 20,
+        "zoomed": 20,
     }
 
     # Get augmentation configurations
