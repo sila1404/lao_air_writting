@@ -77,7 +77,7 @@ def main():
 
     # Drawing settings
     drawing_color = (255, 255, 255)  # White color
-    line_thickness = 4  # Increased line thickness
+    line_thickness = 3  # Increased line thickness
 
     # Variable to store last saved filename
     last_saved_file = ""
