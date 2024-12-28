@@ -1,9 +1,7 @@
 import cv2
-import mediapipe as mp
-import numpy as np
 from datetime import datetime
 import os
-from utils import is_index_finger_up
+from utils import HandTracker, DrawingCanvas, DrawingArea, DisplayManager
 
 
 def generate_filename():
@@ -17,44 +15,19 @@ def generate_filename():
 
 
 def main():
-    # Initialize MediaPipe components
-    mp_hands = mp.solutions.hands
-    mp_draw = mp.solutions.drawing_utils
-    hands = mp_hands.Hands(min_detection_confidence=0.5, min_tracking_confidence=0.5)
-
     # Initialize webcam
     cap = cv2.VideoCapture(0)
-
-    # Get webcam dimensions
     webcam_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     webcam_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
-    # Create canvas (128x128)
-    canvas_size = (128, 128)
-    canvas = np.zeros((canvas_size[0], canvas_size[1], 3), dtype=np.uint8)
-    prev_point = None
+    # Initialize components
+    hand_tracker = HandTracker()
+    drawing_canvas = DrawingCanvas()
+    drawing_area = DrawingArea(webcam_width, webcam_height)
+    display_manager = DisplayManager(webcam_height)
 
     # Calculate drawing area in webcam frame (maintaining aspect ratio)
-    aspect_ratio = 1.0  # square canvas
-    if webcam_height < webcam_width:
-        drawing_height = int(webcam_height * 0.45)  # 45% of height
-        drawing_width = int(drawing_height * aspect_ratio)
-    else:
-        drawing_width = int(webcam_width * 0.4)  # 40% of width
-        drawing_height = int(drawing_width * aspect_ratio)
-
-    # Calculate drawing area position (shifted right and up)
-    right_margin = int(webcam_width * 0.15)  # 15% margin from right
-    top_margin = int(webcam_height * 0.2)  # 20% margin from top
-    drawing_x = webcam_width - drawing_width - right_margin  # Position from right
-    drawing_y = top_margin
-
-    # Drawing settings
-    drawing_color = (255, 255, 255)  # White color
-    line_thickness = 3  # Increased line thickness
-
-    # Variable to store last saved filename
-    last_saved_file = ""
+    drawing_area.setup_drawing_area()
 
     while True:
         # Read frame from webcam
@@ -67,30 +40,13 @@ def main():
         frame = cv2.flip(frame, 1)
 
         # Draw canvas boundary on webcam frame
-        cv2.rectangle(
-            frame,
-            (drawing_x, drawing_y),
-            (drawing_x + drawing_width, drawing_y + drawing_height),
-            (0, 0, 255),
-            2,
-        )
-
-        # Add boundary label
-        cv2.putText(
-            frame,
-            "Drawing Area",
-            (drawing_x, drawing_y - 10),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.5,
-            (0, 0, 255),
-            1,
-        )
+        display_manager.draw_canvas_boundary(frame, drawing_area)
 
         # Convert BGR to RGB
         rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
         # Process hands
-        results = hands.process(rgb_frame)
+        results = hand_tracker.process_frame(rgb_frame)
 
         # If hands are detected
         if results.multi_hand_landmarks:
@@ -100,98 +56,55 @@ def main():
                 finger_y = int(hand_landmark.landmark[8].y * webcam_height)
 
                 # Convert finger position to canvas space if within drawing area
-                if (
-                    drawing_x <= finger_x <= drawing_x + drawing_width
-                    and drawing_y <= finger_y <= drawing_y + drawing_height
-                ):
-                    # Map finger position to canvas coordinates
-                    canvas_x = int(
-                        ((finger_x - drawing_x) / drawing_width) * canvas_size[0]
-                    )
-                    canvas_y = int(
-                        ((finger_y - drawing_y) / drawing_height) * canvas_size[1]
-                    )
+                canvas_coord = drawing_area.get_canvas_coordinates(
+                    finger_x, finger_y, drawing_canvas.canvas_size
+                )
 
-                    # Only draw if index finger is pointing
-                    if is_index_finger_up(hand_landmark):
-                        if prev_point is not None:
-                            cv2.line(
-                                canvas,
-                                prev_point,
-                                (canvas_x, canvas_y),
-                                drawing_color,
-                                line_thickness,
-                            )
-                        prev_point = (canvas_x, canvas_y)
+                # Only draw if index finger is pointing
+                if canvas_coord and hand_tracker.is_index_finger_up(hand_landmark):
+                    if drawing_canvas.prev_point is not None:
+                        drawing_canvas.draw_line(
+                            drawing_canvas.prev_point, canvas_coord
+                        )
+                    drawing_canvas.prev_point = canvas_coord
 
-                        # Draw current point indicator on webcam frame
-                        cv2.circle(frame, (finger_x, finger_y), 5, (0, 0, 255), -1)
-                    else:
-                        prev_point = None
+                    # Draw current point indicator on webcam frame
+                    cv2.circle(frame, (finger_x, finger_y), 5, (0, 0, 255), -1)
                 else:
-                    prev_point = None
+                    drawing_canvas.prev_point = None
 
                 # Draw hand landmark on webcam frame
-                mp_draw.draw_landmarks(
-                    frame,
-                    hand_landmark,
-                    mp_hands.HAND_CONNECTIONS,
-                    mp_draw.DrawingSpec(color=(0, 0, 255), thickness=2),
-                    mp_draw.DrawingSpec(color=(0, 255, 0), thickness=2),
-                )
+                hand_tracker.draw_landmarks(frame, hand_landmark)
         else:
-            prev_point = None
+            drawing_canvas.prev_point = None
 
         # Add instructions and last saved filename to frame
-        cv2.putText(
-            frame,
-            "Point index finger to draw",
-            (10, webcam_height - 90),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.7,
-            (0, 255, 0),
-            2,
-        )
-        cv2.putText(
-            frame,
-            "Press: 'c'-clear, 's'-save, 'q'-quit",
-            (10, webcam_height - 60),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.7,
-            (0, 255, 0),
-            2,
-        )
-        if last_saved_file:
-            cv2.putText(
-                frame,
-                f"Last saved: {os.path.basename(last_saved_file)}",
-                (10, webcam_height - 30),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.7,
-                (0, 255, 0),
-                2,
-            )
+        display_manager.draw_collect_interface(frame)
 
         # Display windows
         cv2.imshow("Hand Detection", frame)
 
         # Show canvas enlarged for better visibility (512x512)
-        canvas_display = cv2.resize(canvas, (512, 512), interpolation=cv2.INTER_NEAREST)
+        canvas_display = cv2.resize(
+            drawing_canvas.get_canvas(), (512, 512), interpolation=cv2.INTER_NEAREST
+        )
         cv2.imshow("Drawing Preview (128x128)", canvas_display)
 
         key = cv2.waitKey(1) & 0xFF
         if key == ord("q"):  # Quit
             break
         elif key == ord("c"):  # Clear canvas
-            canvas = np.zeros((canvas_size[0], canvas_size[1], 3), dtype=np.uint8)
-            last_saved_file = ""
+            drawing_canvas.clear()
+            display_manager.last_saved_file = ""
         elif key == ord("s"):  # Save canvas
             filename = generate_filename()
-            cv2.imwrite(filename, canvas, [cv2.IMWRITE_JPEG_QUALITY, 100])
-            last_saved_file = filename
+            cv2.imwrite(
+                filename, drawing_canvas.get_canvas(), [cv2.IMWRITE_JPEG_QUALITY, 100]
+            )
+            display_manager.last_saved_file = filename
             print(f"Drawing saved as '{filename}'")
             # Clear canvas after saving
-            canvas = np.zeros((canvas_size[0], canvas_size[1], 3), dtype=np.uint8)
+            drawing_canvas.clear()
 
     # Release webcam and close windows
     cap.release()
