@@ -20,6 +20,7 @@ lao_air_writting = { path = ".", editable = true }
 [tool.pixi.dependencies]
 opencv = ">=4.10.0,<5"
 numpy = "<2"
+scikit-learn = ">=1.6.0,<2"
 
 [tool.pixi.tasks]
 collect = "python ./src/collect_data/main.py"
