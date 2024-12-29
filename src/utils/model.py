@@ -25,8 +25,7 @@ class CharacterRecognitionModel:
         if not data_dir.exists():
             raise FileNotFoundError(f"Data directory '{data_dir}' not found!")
 
-        class_dirs = [d for d in os.listdir(data_dir) 
-                    if os.path.isdir(data_dir / d)]
+        class_dirs = [d for d in os.listdir(data_dir) if os.path.isdir(data_dir / d)]
 
         if not class_dirs:
             raise ValueError(f"No class directories found in {data_dir}")
@@ -41,8 +40,11 @@ class CharacterRecognitionModel:
             print(f"Processing class '{class_name}' (label: {current_label})")
 
             # Get all image files
-            image_files = [f for f in os.listdir(class_path) 
-                        if f.lower().endswith(('.jpg', '.jpeg', '.png'))]
+            image_files = [
+                f
+                for f in os.listdir(class_path)
+                if f.lower().endswith((".jpg", ".jpeg", ".png"))
+            ]
 
             if not image_files:
                 print(f"Warning: No images found in class directory '{class_name}'")
@@ -132,21 +134,9 @@ class CharacterRecognitionModel:
             metrics=["accuracy"],
         )
 
-        # Data augmentation
-        data_augmentation = tf.keras.Sequential(
-            [
-                layers.RandomRotation(0.1),
-                layers.RandomZoom(0.1),
-                layers.RandomTranslation(0.1, 0.1),
-            ]
-        )
-
         # Prepare datasets
         train_dataset = tf.data.Dataset.from_tensor_slices((X_train, y_train))
         train_dataset = train_dataset.shuffle(1000).batch(batch_size)
-        train_dataset = train_dataset.map(
-            lambda x, y: (data_augmentation(x, training=True), y)
-        )
 
         test_dataset = tf.data.Dataset.from_tensor_slices((X_test, y_test)).batch(
             batch_size
@@ -166,6 +156,9 @@ class CharacterRecognitionModel:
 
         # Save model and label mapping
         self.save_model()
+
+        # Save training history - save the history.history directly
+        np.save("training_history.npy", self.history.history)
 
         return self.history
 
@@ -211,11 +204,32 @@ class CharacterRecognitionModel:
 
         return predicted_label, confidence
 
-    def evaluate(self, test_dataset):
-        if self.model is None:
-            print("Model not loaded")
-            return
+    def load_test_data(self, data_dir, img_size=(128, 128)):
+        """Load test data for evaluation"""
+        images = []
+        labels = []
+        true_labels = []  # Store actual label names
 
-        test_loss, test_accuracy = self.model.evaluate(test_dataset)
-        print(f"\nTest accuracy: {test_accuracy:.4f}")
-        print(f"Test loss: {test_loss:.4f}")
+        # Load label mapping
+        with open("label_map.json", "r", encoding="utf-8") as f:
+            label_map = json.load(f)
+
+        for class_name, label_idx in label_map.items():
+            class_path = os.path.join(data_dir, class_name)
+            if not os.path.exists(class_path):
+                continue
+
+            for img_file in os.listdir(class_path):
+                if img_file.lower().endswith((".png", ".jpg", ".jpeg")):
+                    img_path = os.path.join(class_path, img_file)
+                    img = tf.keras.preprocessing.image.load_img(
+                        img_path, color_mode="grayscale", target_size=img_size
+                    )
+                    img_array = tf.keras.preprocessing.image.img_to_array(img)
+                    img_array = img_array / 255.0
+
+                    images.append(img_array)
+                    labels.append(label_idx)
+                    true_labels.append(class_name)
+
+        return np.array(images), np.array(labels), true_labels, label_map
