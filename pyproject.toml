@@ -22,7 +22,11 @@ opencv = ">=4.10.0,<5"
 numpy = "<2"
 scikit-learn = ">=1.6.0,<2"
 pillow = ">=11.0.0,<12"
+seaborn = ">=0.13.2,<0.14"
 
 [tool.pixi.tasks]
 collect = "python ./src/collect_data/main.py"
 augment = "python ./src/augment_image/main.py"
+evaluate = "python ./src/lao_air_writting/evaluate_model.py"
+train = "python ./src/lao_air_writting/train_model.py"
+test = "python ./src/lao_air_writting/test_model.py"
