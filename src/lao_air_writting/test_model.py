@@ -25,11 +25,14 @@ def main():
         print("Failed to load model. Exiting...")
         return
 
-    # Prediction settings
-    prediction_cooldown = 0
-    PREDICTION_INTERVAL = 15
-    predicted_label = ""
+    # Prediction variables
+    predicted_label = "None"  # Initialize with "None" instead of empty string
     confidence = 0.0
+    is_drawing = False
+    frames_since_last_draw = 0
+    FRAMES_BEFORE_PREDICT = (
+        30  # Adjust this value to change how long to wait after drawing stops
+    )
 
     while True:
         ret, frame = cap.read()
@@ -42,6 +45,8 @@ def main():
 
         # Process hands
         results = hand_tracker.process_frame(rgb_frame)
+
+        current_frame_drew = False
 
         if results.multi_hand_landmarks:
             for hand_landmark in results.multi_hand_landmarks:
@@ -57,6 +62,9 @@ def main():
                         drawing_canvas.draw_line(
                             drawing_canvas.prev_point, canvas_coord
                         )
+                        current_frame_drew = True
+                        is_drawing = True
+                        frames_since_last_draw = 0
                     drawing_canvas.prev_point = canvas_coord
                     cv2.circle(frame, (finger_x, finger_y), 5, (0, 0, 255), -1)
                 else:
@@ -64,15 +72,17 @@ def main():
 
                 hand_tracker.draw_landmarks(frame, hand_landmark)
 
-        # Make prediction
-        if prediction_cooldown <= 0:
-            predicted_label, confidence = recognizer.predict(
-                drawing_canvas.get_canvas()
-            )
-            prediction_cooldown = PREDICTION_INTERVAL
-            # Debug print
-            print(f"Prediction: {predicted_label}, Confidence: {confidence}")
-        prediction_cooldown -= 1
+        # If we didn't draw anything this frame but were drawing before
+        if not current_frame_drew and is_drawing:
+            frames_since_last_draw += 1
+
+            # If enough frames have passed without drawing, make prediction
+            if frames_since_last_draw >= FRAMES_BEFORE_PREDICT:
+                predicted_label, confidence = recognizer.predict(
+                    drawing_canvas.get_canvas()
+                )
+                print(f"Prediction: {predicted_label}, Confidence: {confidence}")
+                is_drawing = False
 
         # Update display
         display_manager.draw_canvas_boundary(frame, drawing_area)
@@ -91,8 +101,10 @@ def main():
             break
         elif key == ord("c"):
             drawing_canvas.clear()
-            predicted_label = ""
+            predicted_label = "None"
             confidence = 0.0
+            is_drawing = False
+            frames_since_last_draw = 0
 
     cap.release()
     cv2.destroyAllWindows()
