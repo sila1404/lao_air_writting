@@ -1,5 +1,7 @@
 import cv2
 import os
+from PIL import Image, ImageDraw, ImageFont
+import numpy as np
 
 
 class DisplayManager:
@@ -7,35 +9,80 @@ class DisplayManager:
         self.webcam_height = webcam_height
         self.last_saved_file = last_saved_file
 
+        # Try multiple possible font locations
+        possible_fonts = [
+            "src\\assets\\fonts\\Phetsarath_OT.ttf",
+            "C:\\Windows\\Fonts\\Phetsarath_OT.ttf",
+            "\\usr\\share\\fonts\\truetype\\lao\\Phetsarath_OT.ttf",
+            os.path.join(os.path.dirname(__file__), "fonts", "Phetsarath_OT.ttf"),
+            # Add more potential font paths here
+        ]
+
+        self.font_path = None
+        for font in possible_fonts:
+            if os.path.exists(font):
+                self.font_path = font
+                break
+
+        if self.font_path is None:
+            print("Warning: No suitable font found. Text display may be limited.")
+
     def draw_interface(self, frame, predicted_label="", confidence=0.0):
-        cv2.putText(
-            frame,
-            "Point index finger to draw",
-            (10, self.webcam_height - 90),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.7,
-            (0, 255, 0),
-            2,
-        )
-        cv2.putText(
-            frame,
-            "Press: 'c'-clear, 'q'-quit",
-            (10, self.webcam_height - 60),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.7,
-            (0, 255, 0),
-            2,
-        )
-        if predicted_label:
+        try:
+            if not predicted_label or confidence <= 0.3:
+                return
+
             cv2.putText(
                 frame,
-                f"Prediction: {predicted_label} ({confidence:.2f})",
-                (10, self.webcam_height - 30),
+                "Point index finger to draw",
+                (10, self.webcam_height - 90),
                 cv2.FONT_HERSHEY_SIMPLEX,
                 0.7,
                 (0, 255, 0),
                 2,
             )
+            cv2.putText(
+                frame,
+                "Press: 'c'-clear, 'q'-quit",
+                (10, self.webcam_height - 60),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.7,
+                (0, 255, 0),
+                2,
+            )
+
+            # Get frame dimensions
+            height, width = frame.shape[:2]
+            y_position = height - 50  # 50 pixels from bottom
+
+            # Convert to PIL Image
+            frame_pil = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+            draw = ImageDraw.Draw(frame_pil)
+
+            # Use font if available, otherwise use default
+            try:
+                if self.font_path:
+                    font = ImageFont.truetype(self.font_path, 24)
+                else:
+                    font = ImageFont.load_default()
+            except Exception as e:
+                print(f"Font error: {e}")
+                font = ImageFont.load_default()
+
+            # Draw text at bottom position
+            draw.text(
+                (10, y_position),
+                f"Predicted: {predicted_label} - ({confidence:.2f})",
+                font=font,
+                fill=(0, 255, 0),
+                stroke_width=0.5,  # Add stroke for bold effect
+                stroke_fill=(0, 255, 0),  # Same color as fill for consistent look
+            )
+
+            # Convert back to OpenCV format
+            frame[:] = cv2.cvtColor(np.array(frame_pil), cv2.COLOR_RGB2BGR)
+        except Exception as e:
+            print(f"Error in draw_interface: {e}")
 
     def draw_canvas_boundary(self, frame, drawing_area):
         cv2.rectangle(
