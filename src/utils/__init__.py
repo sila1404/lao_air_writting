@@ -1,7 +1,7 @@
 from .drawing_util import DrawingArea, DrawingCanvas
 from .hand_tracking import HandTracker
 from .model import CharacterRecognitionModel
-from .visualization import DisplayManager
+from .visualization import DisplayManager, VisualizationManager
 
 __all__ = [
     "DrawingArea",
@@ -9,4 +9,5 @@ __all__ = [
     "HandTracker",
     "CharacterRecognitionModel",
     "DisplayManager",
+    "VisualizationManager",
 ]

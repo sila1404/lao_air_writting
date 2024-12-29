@@ -2,6 +2,9 @@ import cv2
 import os
 from PIL import Image, ImageDraw, ImageFont
 import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.metrics import confusion_matrix
 
 
 class DisplayManager:
@@ -29,9 +32,6 @@ class DisplayManager:
 
     def draw_interface(self, frame, predicted_label="", confidence=0.0):
         try:
-            if not predicted_label or confidence <= 0.3:
-                return
-
             cv2.putText(
                 frame,
                 "Point index finger to draw",
@@ -69,10 +69,16 @@ class DisplayManager:
                 print(f"Font error: {e}")
                 font = ImageFont.load_default()
 
+            # Always show prediction info, even if empty
+            prediction_text = (
+                "Predicted: None"
+                if not predicted_label
+                else f"Predicted: {predicted_label} ({confidence:.2f})"
+            )
             # Draw text at bottom position
             draw.text(
                 (10, y_position),
-                f"Predicted: {predicted_label} - ({confidence:.2f})",
+                prediction_text,
                 font=font,
                 fill=(0, 255, 0),
                 stroke_width=0.5,  # Add stroke for bold effect
@@ -137,11 +143,36 @@ class DisplayManager:
                 2,
             )
 
-    def plot_training_history(self, history):
-        import matplotlib.pyplot as plt
 
+class VisualizationManager:
+    @staticmethod
+    def plot_confusion_matrix(y_true, y_pred, labels):
+        """Plot confusion matrix"""
+        cm = confusion_matrix(y_true, y_pred)
+        plt.figure(figsize=(12, 8))
+        sns.heatmap(
+            cm,
+            annot=True,
+            fmt="d",
+            cmap="Blues",
+            xticklabels=labels,
+            yticklabels=labels,
+        )
+        plt.title("Confusion Matrix")
+        plt.ylabel("True Label")
+        plt.xlabel("Predicted Label")
+        plt.xticks(rotation=45)
+        plt.yticks(rotation=45)
+        plt.tight_layout()
+        plt.savefig("confusion_matrix.png")
+        plt.close()
+
+    @staticmethod
+    def plot_training_history(history):
+        """Plot training history"""
         plt.figure(figsize=(12, 4))
 
+        # Plot accuracy
         plt.subplot(1, 2, 1)
         plt.plot(history.history["accuracy"], label="Training Accuracy")
         plt.plot(history.history["val_accuracy"], label="Validation Accuracy")
@@ -150,6 +181,7 @@ class DisplayManager:
         plt.ylabel("Accuracy")
         plt.legend()
 
+        # Plot loss
         plt.subplot(1, 2, 2)
         plt.plot(history.history["loss"], label="Training Loss")
         plt.plot(history.history["val_loss"], label="Validation Loss")
@@ -159,4 +191,5 @@ class DisplayManager:
         plt.legend()
 
         plt.tight_layout()
-        plt.show()
+        plt.savefig("training_history.png")
+        plt.close()
