@@ -22,11 +22,23 @@ class HandDrawingApp:
         self.setup_gui_components()
         self.setup_recognition_components()
 
+        # Add key bindings
+        self.window.bind("<Key>", self.handle_keypress)
+
         # Start video thread
         self.is_running = True
         self.thread = threading.Thread(target=self.update_video)
         self.thread.daemon = True
         self.thread.start()
+
+    def handle_keypress(self, event):
+        # Handle key press events
+        if event.char == "c":
+            self.clear_text()
+        elif event.char == "q":
+            self.quit_app()
+        elif event.char == "d":
+            self.delete_last_char()
 
     def setup_video_components(self):
         self.cap = cv2.VideoCapture(0)
@@ -79,8 +91,13 @@ class HandDrawingApp:
         self.text_input.grid(row=0, column=0, padx=5)
 
         # Create buttons
+        self.delete_button = ttk.Button(
+            self.control_frame, text="Delete (d)", command=self.delete_last_char
+        )
+        self.delete_button.grid(row=0, column=2, padx=5)
+
         self.clear_button = ttk.Button(
-            self.control_frame, text="Clear (c)", command=self.clear_canvas
+            self.control_frame, text="Clear (c)", command=self.clear_text
         )
         self.clear_button.grid(row=0, column=1, padx=5)
 
@@ -192,7 +209,16 @@ class HandDrawingApp:
             self.canvas_label.configure(image=canvas_tk)
             self.canvas_label.image = canvas_tk
 
-    def clear_canvas(self):
+    def delete_last_char(self):
+        # Get current text
+        current_text = self.text_var.get()
+        if current_text:
+            # Remove last character
+            new_text = current_text[:-1]
+            # Update text input
+            self.text_var.set(new_text)
+
+    def clear_text(self):
         self.text_var.set("")  # This will clear all text in the input field
 
     def quit_app(self):
