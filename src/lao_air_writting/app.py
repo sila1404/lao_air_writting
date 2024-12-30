@@ -94,17 +94,17 @@ class HandDrawingApp:
         self.delete_button = ttk.Button(
             self.control_frame, text="Delete (d)", command=self.delete_last_char
         )
-        self.delete_button.grid(row=0, column=2, padx=5)
+        self.delete_button.grid(row=0, column=1, padx=5)
 
         self.clear_button = ttk.Button(
             self.control_frame, text="Clear (c)", command=self.clear_text
         )
-        self.clear_button.grid(row=0, column=1, padx=5)
+        self.clear_button.grid(row=0, column=2, padx=5)
 
         self.quit_button = ttk.Button(
             self.control_frame, text="Quit (q)", command=self.quit_app
         )
-        self.quit_button.grid(row=0, column=2, padx=5)
+        self.quit_button.grid(row=0, column=3, padx=5)
 
     def update_video(self):
         while self.is_running:
