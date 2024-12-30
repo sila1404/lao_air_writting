@@ -5,10 +5,10 @@ from PIL import Image, ImageTk
 import threading
 from utils import (
     HandTracker,
-    DrawingArea,
     DrawingCanvas,
     CharacterRecognitionModel,
     DisplayManager,
+    DrawingCenterer,
 )
 
 
@@ -48,9 +48,10 @@ class HandDrawingApp:
     def setup_recognition_components(self):
         self.hand_tracker = HandTracker()
         self.drawing_canvas = DrawingCanvas()
-        self.drawing_area = DrawingArea(self.webcam_width, self.webcam_height)
+        # self.drawing_area = DrawingArea(self.webcam_width, self.webcam_height)
         self.recognizer = CharacterRecognitionModel()
         self.display_manager = DisplayManager(self.webcam_height)
+        self.drawing_centerer = DrawingCenterer()
 
         if not self.recognizer.load_model():
             print("Failed to load model")
@@ -125,13 +126,20 @@ class HandDrawingApp:
                     finger_x = int(hand_landmark.landmark[8].x * self.webcam_width)
                     finger_y = int(hand_landmark.landmark[8].y * self.webcam_height)
 
-                    canvas_coord = self.drawing_area.get_canvas_coordinates(
-                        finger_x, finger_y, self.drawing_canvas.canvas_size
+                    # Scale coordinates to canvas size
+                    canvas_x = int(
+                        finger_x
+                        * self.drawing_canvas.canvas_size[0]
+                        / self.webcam_width
                     )
+                    canvas_y = int(
+                        finger_y
+                        * self.drawing_canvas.canvas_size[1]
+                        / self.webcam_height
+                    )
+                    canvas_coord = (canvas_x, canvas_y)
 
-                    if canvas_coord and self.hand_tracker.is_index_finger_up(
-                        hand_landmark
-                    ):
+                    if self.hand_tracker.is_index_finger_up(hand_landmark):
                         if self.drawing_canvas.prev_point is not None:
                             self.drawing_canvas.draw_line(
                                 self.drawing_canvas.prev_point, canvas_coord
@@ -152,19 +160,21 @@ class HandDrawingApp:
 
                 # If enough frames have passed without drawing, make prediction
                 if self.frames_since_last_draw >= self.FRAMES_BEFORE_PREDICT:
-                    predicted_label, confidence = self.recognizer.predict(
+                    centered_canvas = self.drawing_centerer.center_drawing(
                         self.drawing_canvas.get_canvas()
                     )
+                    predicted_label, confidence = self.recognizer.predict(
+                        centered_canvas
+                    )
                     if confidence > 0.3:  # Only update if confidence is high enough
-                        # Update the prediction display
                         self.predicted_label = predicted_label
                         self.confidence = confidence
 
-                        # Immediately update text input
+                        # Append predicted character to text input
                         current_text = self.text_var.get()
                         self.text_var.set(current_text + predicted_label)
 
-                        # Clear canvas immediately after prediction
+                        # Auto clear canvas after successful prediction
                         self.drawing_canvas.clear()
                         self.predicted_label = "None"
                         self.confidence = 0.0
@@ -175,7 +185,7 @@ class HandDrawingApp:
                     self.drawing_canvas.prev_point = None  # Reset previous point
 
             # Update display
-            self.display_manager.draw_canvas_boundary(frame, self.drawing_area)
+            # self.display_manager.draw_canvas_boundary(frame, self.drawing_area)
             cv2.putText(
                 frame,
                 "Point index finger to draw",
@@ -195,12 +205,13 @@ class HandDrawingApp:
             self.video_label.configure(image=frame_tk)
             self.video_label.image = frame_tk
 
-            # Update canvas preview
-            canvas_display = cv2.resize(
-                self.drawing_canvas.get_canvas(),
-                (256, 256),
-                interpolation=cv2.INTER_NEAREST,
+            # When updating the canvas preview, add centering:
+            centered_canvas = self.drawing_centerer.center_drawing(
+                self.drawing_canvas.get_canvas()
             )
+            canvas_display = cv2.resize(
+                centered_canvas, (256, 256)
+            )  # Resize for display only
             canvas_rgb = cv2.cvtColor(canvas_display, cv2.COLOR_BGR2RGB)
             canvas_pil = Image.fromarray(canvas_rgb)
             canvas_tk = ImageTk.PhotoImage(image=canvas_pil)

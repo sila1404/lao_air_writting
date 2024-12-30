@@ -66,3 +66,72 @@ class DrawingArea:
             )
             return (canvas_x, canvas_y)
         return None
+
+
+class DrawingCenterer:
+    def __init__(self, canvas_size=(128, 128)):  # Changed to 128x128
+        self.canvas_size = canvas_size
+
+    def center_drawing(self, canvas):
+        # Create a copy of the canvas to work with
+        canvas_copy = canvas.copy()
+
+        # Find non-zero points (where drawing exists)
+        y_coords, x_coords = np.nonzero(cv2.cvtColor(canvas_copy, cv2.COLOR_BGR2GRAY))
+
+        if len(x_coords) == 0 or len(y_coords) == 0:  # If no drawing
+            return cv2.resize(
+                canvas_copy, self.canvas_size
+            )  # Ensure correct output size
+
+        # Get bounding box
+        min_x, max_x = np.min(x_coords), np.max(x_coords)
+        min_y, max_y = np.min(y_coords), np.max(y_coords)
+
+        # Get drawing dimensions
+        drawing_width = max_x - min_x + 1
+        drawing_height = max_y - min_y + 1
+
+        if drawing_width <= 1 or drawing_height <= 1:
+            return cv2.resize(canvas_copy, self.canvas_size)
+
+        # Crop the drawing
+        cropped = canvas_copy[min_y : max_y + 1, min_x : max_x + 1]
+
+        # Calculate scaling to fit in center while maintaining aspect ratio
+        scale = min(
+            (self.canvas_size[0] * 0.6) / drawing_width,
+            (self.canvas_size[1] * 0.6) / drawing_height,
+        )
+
+        # Calculate new dimensions
+        new_width = max(int(drawing_width * scale), 1)
+        new_height = max(int(drawing_height * scale), 1)
+
+        # Create a new blank canvas with the correct size
+        centered_canvas = np.zeros(
+            (self.canvas_size[1], self.canvas_size[0], 3), dtype=np.uint8
+        )
+
+        try:
+            # Resize the cropped drawing
+            resized = cv2.resize(cropped, (new_width, new_height))
+
+            # Calculate position to paste the resized drawing
+            x_offset = (self.canvas_size[0] - new_width) // 2
+            y_offset = (self.canvas_size[1] - new_height) // 2
+
+            # Ensure the offsets and dimensions are within bounds
+            x_offset = max(0, min(x_offset, self.canvas_size[0] - new_width))
+            y_offset = max(0, min(y_offset, self.canvas_size[1] - new_height))
+
+            # Paste the resized drawing in the center
+            centered_canvas[
+                y_offset : y_offset + new_height, x_offset : x_offset + new_width
+            ] = resized
+
+        except Exception as e:
+            print(f"Error during centering: {e}")
+            return cv2.resize(canvas_copy, self.canvas_size)
+
+        return centered_canvas
