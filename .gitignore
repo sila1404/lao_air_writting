@@ -4,3 +4,9 @@
 *.egg-info
 
 __pycache__
+
+# image datasets directory
+datasets
+augmented_images
+test_datasets
+train_datasets
