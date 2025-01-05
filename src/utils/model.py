@@ -164,7 +164,7 @@ class CharacterRecognitionModel:
 
     def save_model(
         self,
-        model_path="hand_drawn_character_model.h5",
+        model_path="hand_drawn_character_model.keras",
         label_map_path="label_map.json",
     ):
         self.model.save(model_path)
@@ -174,7 +174,7 @@ class CharacterRecognitionModel:
 
     def load_model(
         self,
-        model_path="hand_drawn_character_model.h5",
+        model_path="hand_drawn_character_model.keras",
         label_map_path="label_map.json",
     ):
         try:
