@@ -7,7 +7,7 @@ def train_new_model():
     model = CharacterRecognitionModel()
 
     # Set the correct path to your dataset
-    dataset_path = "augmented_images"  # Update this path if needed
+    dataset_path = "train_datasets"
 
     if not os.path.exists(dataset_path):
         print(f"Error: Dataset directory '{dataset_path}' not found!")
@@ -21,7 +21,7 @@ def train_new_model():
 
         print("\nModel training completed!")
         print("Files saved:")
-        print("- hand_drawn_character_model.h5")
+        print("- hand_drawn_character_model.keras")
         print("- label_map.json")
         print("- training_history.npy")
 

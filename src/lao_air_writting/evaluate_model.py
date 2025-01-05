@@ -16,7 +16,7 @@ def evaluate_model():
 
     # Load test data
     print("Loading test data...")
-    X_test, y_test, true_labels, label_map = model.load_test_data("augmented_images")
+    X_test, y_test, true_labels, label_map = model.load_test_data("test_datasets")
 
     # Make predictions
     print("\nMaking predictions...")
