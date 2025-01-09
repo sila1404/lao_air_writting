@@ -26,7 +26,7 @@ def main():
         return
 
     # Prediction variables
-    predicted_label = "None"  # Initialize with "None" instead of empty string
+    predicted_label = "None"
     confidence = 0.0
     is_drawing = False
     frames_since_last_draw = 0
@@ -57,7 +57,7 @@ def main():
                     finger_x, finger_y, drawing_canvas.canvas_size
                 )
 
-                if canvas_coord and hand_tracker.is_index_finger_up(hand_landmark):
+                if canvas_coord and not hand_tracker.is_hand_open(hand_landmark):
                     if drawing_canvas.prev_point is not None:
                         drawing_canvas.draw_line(
                             drawing_canvas.prev_point, canvas_coord

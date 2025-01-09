@@ -129,7 +129,7 @@ class HandDrawingApp:
                         finger_x, finger_y, self.drawing_canvas.canvas_size
                     )
 
-                    if canvas_coord and self.hand_tracker.is_index_finger_up(
+                    if canvas_coord and not self.hand_tracker.is_hand_open(
                         hand_landmark
                     ):
                         if self.drawing_canvas.prev_point is not None:

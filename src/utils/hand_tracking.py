@@ -9,26 +9,35 @@ class HandTracker:
             min_detection_confidence=0.5, min_tracking_confidence=0.5
         )
 
-    def is_index_finger_up(self, hand_landmarks):
+    def is_hand_open(self, hand_landmarks):
+        # Get y-coordinates for all finger tips and their respective PIPs
+        thumb_tip = hand_landmarks.landmark[4].y
+        thumb_ip = hand_landmarks.landmark[3].y
+
         index_tip = hand_landmarks.landmark[8].y
-        index_dip = hand_landmarks.landmark[7].y
         index_pip = hand_landmarks.landmark[6].y
-        index_mcp = hand_landmarks.landmark[5].y
 
         middle_tip = hand_landmarks.landmark[12].y
-        ring_tip = hand_landmarks.landmark[16].y
-        pinky_tip = hand_landmarks.landmark[20].y
+        middle_pip = hand_landmarks.landmark[10].y
 
-        index_up = index_tip < index_dip < index_pip < index_mcp
-        other_down = all(
+        ring_tip = hand_landmarks.landmark[16].y
+        ring_pip = hand_landmarks.landmark[14].y
+
+        pinky_tip = hand_landmarks.landmark[20].y
+        pinky_pip = hand_landmarks.landmark[18].y
+
+        # Check if all fingers are extended (tip is above pip)
+        all_fingers_up = all(
             [
-                middle_tip > index_pip,
-                ring_tip > index_pip,
-                pinky_tip > index_pip,
+                thumb_tip < thumb_ip,  # Thumb is up
+                index_tip < index_pip,  # Index is up
+                middle_tip < middle_pip,  # Middle is up
+                ring_tip < ring_pip,  # Ring is up
+                pinky_tip < pinky_pip,  # Pinky is up
             ]
         )
 
-        return index_up and other_down
+        return all_fingers_up
 
     def process_frame(self, frame):
         return self.hands.process(frame)
