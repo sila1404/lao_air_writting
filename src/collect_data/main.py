@@ -61,7 +61,7 @@ def main():
                 )
 
                 # Only draw if index finger is pointing
-                if canvas_coord and hand_tracker.is_index_finger_up(hand_landmark):
+                if canvas_coord and not hand_tracker.is_hand_open(hand_landmark):
                     if drawing_canvas.prev_point is not None:
                         drawing_canvas.draw_line(
                             drawing_canvas.prev_point, canvas_coord
