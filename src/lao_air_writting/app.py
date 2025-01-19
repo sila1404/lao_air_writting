@@ -9,6 +9,7 @@ from utils import (
     DrawingCanvas,
     CharacterRecognitionModel,
     DisplayManager,
+    OCRProcessor
 )
 
 
@@ -51,6 +52,7 @@ class HandDrawingApp:
         self.drawing_area = DrawingArea(self.webcam_width, self.webcam_height)
         self.recognizer = CharacterRecognitionModel()
         self.display_manager = DisplayManager(self.webcam_height)
+        self.ocr = OCRProcessor()
 
         if not self.recognizer.load_model():
             print("Failed to load model")
@@ -59,10 +61,10 @@ class HandDrawingApp:
 
         # Prediction variables
         self.predicted_label = "None"
-        self.confidence = 0.0
+        # self.confidence = 0.0
         self.is_drawing = False
         self.frames_since_last_draw = 0
-        self.FRAMES_BEFORE_PREDICT = 30
+        self.FRAMES_BEFORE_PREDICT = 50
 
     def setup_gui_components(self):
         # Create main frames
@@ -152,22 +154,22 @@ class HandDrawingApp:
 
                 # If enough frames have passed without drawing, make prediction
                 if self.frames_since_last_draw >= self.FRAMES_BEFORE_PREDICT:
-                    predicted_label, confidence = self.recognizer.predict(
-                        self.drawing_canvas.get_canvas()
+                    predicted_label = self.ocr.recognize_text(
+                        self.drawing_canvas.get_canvas(),
                     )
-                    if confidence > 0.3:  # Only update if confidence is high enough
-                        # Update the prediction display
-                        self.predicted_label = predicted_label
-                        self.confidence = confidence
+                    # if confidence > 0.3:  # Only update if confidence is high enough
+                    # Update the prediction display
+                    self.predicted_label = predicted_label
+                    # self.confidence = confidence
 
-                        # Immediately update text input
-                        current_text = self.text_var.get()
-                        self.text_var.set(current_text + predicted_label)
+                    # Immediately update text input
+                    current_text = self.text_var.get()
+                    self.text_var.set(current_text + predicted_label)
 
-                        # Clear canvas immediately after prediction
-                        self.drawing_canvas.clear()
-                        self.predicted_label = "None"
-                        self.confidence = 0.0
+                    # Clear canvas immediately after prediction
+                    self.drawing_canvas.clear()
+                    self.predicted_label = "None"
+                    # self.confidence = 0.0
 
                     # Reset drawing state
                     self.is_drawing = False
