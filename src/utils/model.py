@@ -191,13 +191,24 @@ class CharacterRecognitionModel:
         if self.model is None or self.label_map is None:
             return None, 0.0
 
-        img = cv2.cvtColor(canvas, cv2.COLOR_BGR2GRAY)
+        # Ensure the canvas is in grayscale (single channel)
+        if len(canvas.shape) == 3:  # If it's a 3-channel image (BGR)
+            img = cv2.cvtColor(canvas, cv2.COLOR_BGR2GRAY)
+        else:  # If it's already grayscale
+            img = canvas
+
+        # Resize the image to match the model's input size
+        img = cv2.resize(img, (128, 128), interpolation=cv2.INTER_AREA)
+
+        # Normalize and reshape the image for the model
         img = img / 255.0
         img = np.expand_dims(img, axis=[0, -1])
 
+        # Make prediction
         prediction = self.model.predict(img, verbose=0)
         predicted_class = np.argmax(prediction[0])
 
+        # Map the predicted class to the corresponding label
         reverse_label_map = {str(v): k for k, v in self.label_map.items()}
         predicted_label = reverse_label_map[str(predicted_class)]
         confidence = prediction[0][predicted_class]
