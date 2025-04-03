@@ -3,7 +3,7 @@ import numpy as np
 
 
 class DrawingCanvas:
-    def __init__(self, canvas_size=(128, 128)):
+    def __init__(self, canvas_size=(256, 256)):
         self.canvas_size = canvas_size
         self.canvas = np.zeros((canvas_size[0], canvas_size[1], 3), dtype=np.uint8)
         self.prev_point = None
