@@ -3,20 +3,17 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import numpy as np
 import cv2
-from utils import CharacterRecognitionModel, OCRProcessor
+from utils import OCRProcessor
 
 # Global variables for model instances
-model = None
 ocr_processor = None
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup: Initialize models when the application starts
-    global model, ocr_processor
+    global ocr_processor
     try:
-        model = CharacterRecognitionModel()
-        model.load_model()
         ocr_processor = OCRProcessor()
         print("Models initialized successfully")
     except Exception as e:
@@ -25,7 +22,6 @@ async def lifespan(app: FastAPI):
     yield  # Server is running and handling requests
 
     # Cleanup: Release resources when the application is shutting down
-    model = None
     ocr_processor = None
 
 
@@ -44,7 +40,7 @@ app.add_middleware(
 
 @app.post("/predict")
 async def predict_character(image: UploadFile = File(...)):
-    if not model or not ocr_processor:
+    if not ocr_processor:
         raise HTTPException(
             status_code=503, detail="Model not initialized. Please try again later."
         )
@@ -57,18 +53,18 @@ async def predict_character(image: UploadFile = File(...)):
     # Process the image using your existing OCR processor
     predicted_text = ocr_processor.recognize_text(img)
 
-    return {"prediction": predicted_text}
+    return {"success": True, "prediction": predicted_text}
 
 
 @app.get("/health")
 async def health_check():
     return {
         "status": "healthy",
-        "model_loaded": model is not None,
         "ocr_processor_loaded": ocr_processor is not None,
     }
+
 
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run("api:app", reload=True)
+    uvicorn.run(app)
