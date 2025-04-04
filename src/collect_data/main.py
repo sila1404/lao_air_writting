@@ -171,7 +171,8 @@ class DrawingApp:
         2. Open hand to stop drawing  
         3. Select folder (Vowels/Consonants)  
         4. Draw the shown character  
-        5. Click 'Save Drawing' when done  
+        5. Click 'Save Drawing' or press 'S' to save  
+        6. Click 'Clear Canvas' or press 'C' to clear 
         """
         self.instruction_label = ttk.Label(
             self.instruction_frame, text=instructions, justify=tk.LEFT, font=("Phetsarath OT", 15)
@@ -279,6 +280,11 @@ class DrawingApp:
         # Settings Panel (Initially Hidden)
         self.settings_container = ttk.Frame(self.right_frame)
         self.setup_settings_panel()
+
+        # Bind keyboard shortcuts  
+        self.root.bind('<c>', lambda e: self.clear_canvas())  
+        self.root.bind('<s>', lambda e: self.save_drawing())  
+
 
         # Configure scrolling
         self.right_frame.bind("<Configure>", self.on_frame_configure)
@@ -545,7 +551,7 @@ class DrawingApp:
                 # Update canvas preview
                 canvas_display = cv2.resize(
                     self.drawing_canvas.get_canvas(),
-                    self.drawing_canvas.canvas_size,
+                    (256,256),
                     interpolation=cv2.INTER_NEAREST,
                 )
                 canvas_image = Image.fromarray(canvas_display)
