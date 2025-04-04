@@ -174,7 +174,7 @@ class DrawingApp:
         5. Click 'Save Drawing' when done  
         """
         self.instruction_label = ttk.Label(
-            self.instruction_frame, text=instructions, justify=tk.LEFT
+            self.instruction_frame, text=instructions, justify=tk.LEFT, font=("Phetsarath OT", 15)
         )
         self.instruction_label.pack(padx=5, pady=5)
 
