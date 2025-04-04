@@ -1141,7 +1141,7 @@ packages:
 - pypi: .
   name: lao-air-writting
   version: 0.1.0
-  sha256: 45f5ab0f8eb93b8433943ba4187bc802bed074b57bf36bdeaf62ed7083f99293
+  sha256: e8df2a43b13461ea7616cc5a024f94c00fea4e4a7bbd4623e3d97d3bec1a89b1
   requires_dist:
   - mediapipe>=0.10.14,<0.11
   - tensorflow>=2.14.0,<3
