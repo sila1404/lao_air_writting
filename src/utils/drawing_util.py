@@ -7,14 +7,40 @@ class DrawingCanvas:
         self.canvas_size = canvas_size
         self.canvas = np.zeros((canvas_size[0], canvas_size[1], 3), dtype=np.uint8)
         self.prev_point = None
-        self.drawing_color = (255, 255, 255)
+        self.drawing_color = (255, 255, 255)  # White for drawing
         self.line_thickness = 3
+
+        # Create a separate overlay for tracking indicators
+        self.overlay = np.zeros_like(self.canvas)
+        self.current_pos = None
+        self.last_drawing_pos = None
 
     def clear(self):
         self.canvas = np.zeros(
             (self.canvas_size[0], self.canvas_size[1], 3), dtype=np.uint8
         )
+        self.overlay = np.zeros_like(self.canvas)
         self.prev_point = None
+        self.last_drawing_pos = None
+        self.current_pos = None
+
+    def update_tracking_position(self, canvas_coord):
+        """Update the current position on canvas"""
+        self.current_pos = canvas_coord
+        self.update_overlay()
+
+    def update_drawing_position(self, canvas_coord):
+        """Update the last drawing position on canvas"""
+        self.last_drawing_pos = canvas_coord
+        self.update_overlay()
+
+    def update_overlay(self):
+        """Update the overlay with tracking indicators"""
+        self.overlay = np.zeros_like(self.canvas)
+
+        # Draw current position (blue dot)
+        if self.current_pos:
+            cv2.circle(self.overlay, self.current_pos, 2, (255, 0, 0), -1)  # Blue
 
     def draw_line(self, start_point, end_point):
         if start_point is not None and end_point is not None:
@@ -25,9 +51,16 @@ class DrawingCanvas:
                 self.drawing_color,
                 self.line_thickness,
             )
+            self.last_drawing_pos = end_point
+            self.update_overlay()
 
     def get_canvas(self):
-        return self.canvas
+        """Combine the drawing canvas with the overlay"""
+        # Combine canvas and overlay
+        result = self.canvas.copy()
+        mask = self.overlay > 0
+        result[mask] = self.overlay[mask]
+        return result
 
 
 class DrawingArea:
