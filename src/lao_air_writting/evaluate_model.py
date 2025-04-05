@@ -23,7 +23,6 @@ def evaluate_model():
     start_time = time.time()
     predictions = model.model.predict(X_test)
     prediction_time = time.time() - start_time
-
     # Convert predictions to class labels
     y_pred = np.argmax(predictions, axis=1)
 
