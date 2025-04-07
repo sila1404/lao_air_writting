@@ -28,7 +28,7 @@ This project is a Bachelor's thesis in Computer Science that implements a Lao ch
         powershell -ExecutionPolicy ByPass -c "irm -useb https://pixi.sh/install.ps1 | iex"
         ```
 
-    - Linux $ MacOS:
+    - Linux & MacOS:
         ```bash
         curl -fsSL https://pixi.sh/install.sh | sh
         ```
