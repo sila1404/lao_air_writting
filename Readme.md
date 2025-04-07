@@ -63,7 +63,7 @@ All required dependencies are managed in pyproject.toml:
 
 ## Usage
 
-The project includes six main commands for different stages of the process:
+The project includes seven main commands for different stages of the process:
 
 ### Data Collection and Augmentation
 
@@ -122,6 +122,34 @@ The project includes six main commands for different stages of the process:
     -   Launches the main application interface
     -   Allows real-time character writing and recognition
     -   Includes text-to-speech functionality
+
+### API Server
+
+-   Start API Server
+    ```bash
+    pixi run api
+    ```
+    -   Launches the API server for Lao character recognition
+    -   Provides endpoints for text recognition and text-to-speech conversion
+    -   Server runs on localhost (default port: 8000)
+
+## Troubleshooting
+
+If you encounter the following error:
+
+_ModuleNotFoundError: No module named 'certifi'_
+
+You can resolve it by running the following command:
+
+```bash
+pixi clean
+```
+
+Then, reinstall the dependencies:
+
+```bash
+pixi install
+```
 
 ## How It Works
 
