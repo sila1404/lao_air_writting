@@ -158,7 +158,7 @@ class CharacterRecognitionModel:
         self.save_model()
 
         # Save training history - save the history.history directly
-        np.save("training_history.npy", self.history.history)
+        np.save("model/training_history.npy", self.history.history)
 
         return self.history
 
