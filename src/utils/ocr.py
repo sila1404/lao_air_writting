@@ -9,8 +9,8 @@ import os
 class OCRProcessor:
     def __init__(
         self,
-        model_path: str = "hand_drawn_character_model.keras",
-        label_map_path: str = "label_map.json",
+        model_path: str = "model/hand_drawn_character_model.keras",
+        label_map_path: str = "model/label_map.json",
     ):
         """Initialize OCR processor with trained model"""
         self.recognizer = CharacterRecognitionModel()

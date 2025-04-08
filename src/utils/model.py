@@ -164,8 +164,8 @@ class CharacterRecognitionModel:
 
     def save_model(
         self,
-        model_path="hand_drawn_character_model.keras",
-        label_map_path="label_map.json",
+        model_path="model/hand_drawn_character_model.keras",
+        label_map_path="model/label_map.json",
     ):
         self.model.save(model_path)
         # Save label map with proper Unicode encoding
@@ -174,8 +174,8 @@ class CharacterRecognitionModel:
 
     def load_model(
         self,
-        model_path="hand_drawn_character_model.keras",
-        label_map_path="label_map.json",
+        model_path="model/hand_drawn_character_model.keras",
+        label_map_path="model/label_map.json",
     ):
         try:
             self.model = tf.keras.models.load_model(model_path)
@@ -222,7 +222,7 @@ class CharacterRecognitionModel:
         true_labels = []  # Store actual label names
 
         # Load label mapping
-        with open("label_map.json", "r", encoding="utf-8") as f:
+        with open("model/label_map.json", "r", encoding="utf-8") as f:
             label_map = json.load(f)
 
         for class_name, label_idx in label_map.items():
