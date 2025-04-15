@@ -1,11 +1,10 @@
 import tensorflow as tf
 from tensorflow.keras import layers, models  # type: ignore
+from tensorflow.keras import regularizers # type: ignore
 import cv2
 import numpy as np
 import os
 import json
-from sklearn.model_selection import train_test_split
-from pathlib import Path
 
 
 class CharacterRecognitionModel:
@@ -14,100 +13,27 @@ class CharacterRecognitionModel:
         self.label_map = None
         self.history = None
 
-    def load_and_preprocess_data(self, data_dir, img_size=(128, 128)):
-        images = []
-        labels = []
-        label_map = {}
-        current_label = 0
-
-        data_dir = Path(data_dir)
-
-        if not data_dir.exists():
-            raise FileNotFoundError(f"Data directory '{data_dir}' not found!")
-
-        class_dirs = [d for d in os.listdir(data_dir) if os.path.isdir(data_dir / d)]
-
-        if not class_dirs:
-            raise ValueError(f"No class directories found in {data_dir}")
-
-        print(f"Found {len(class_dirs)} classes: {class_dirs}")
-
-        for class_name in class_dirs:
-            class_path = data_dir / class_name
-
-            # Add class to label map
-            label_map[class_name] = current_label
-            print(f"Processing class '{class_name}' (label: {current_label})")
-
-            # Get all image files
-            image_files = [
-                f
-                for f in os.listdir(class_path)
-                if f.lower().endswith((".jpg", ".jpeg", ".png"))
-            ]
-
-            if not image_files:
-                print(f"Warning: No images found in class directory '{class_name}'")
-                continue
-
-            print(f"Found {len(image_files)} images in class '{class_name}'")
-
-            for image_file in image_files:
-                img_path = str(class_path / image_file)
-                try:
-                    # Read image using numpy and cv2.imdecode
-                    img_array = np.fromfile(img_path, np.uint8)
-                    img = cv2.imdecode(img_array, cv2.IMREAD_GRAYSCALE)
-
-                    if img is None:
-                        print(f"Warning: Could not read image {image_file}")
-                        continue
-
-                    # Resize image if needed
-                    if img.shape != img_size:
-                        img = cv2.resize(img, img_size)
-
-                    # Normalize and add channel dimension
-                    img = img / 255.0
-                    img = np.expand_dims(img, axis=-1)
-
-                    images.append(img)
-                    labels.append(current_label)
-                except Exception as e:
-                    print(f"Error processing image {image_file}: {str(e)}")
-                    continue
-
-            current_label += 1
-
-        if not images:
-            raise ValueError("No valid images were loaded!")
-
-        print("\nDataset summary:")
-        print(f"Total images loaded: {len(images)}")
-        print(f"Number of classes: {len(label_map)}")
-        print(f"Label mapping: {label_map}")
-
-        return np.array(images), np.array(labels), label_map
-
     def create_cnn_model(self, num_classes):
+        l2_reg = regularizers.l2(0.001)
+        
         model = models.Sequential(
             [
                 # First Convolutional Block
-                layers.Conv2D(32, (3, 3), activation="relu", input_shape=(128, 128, 1)),
+                layers.Conv2D(32, (3, 3), activation="relu", kernel_regularizer=l2_reg, input_shape=(128, 128, 1)),
                 layers.BatchNormalization(),
                 layers.MaxPooling2D((2, 2)),
                 # Second Convolutional Block
-                layers.Conv2D(64, (3, 3), activation="relu"),
+                layers.Conv2D(64, (3, 3), activation="relu", kernel_regularizer=l2_reg),
                 layers.BatchNormalization(),
                 layers.MaxPooling2D((2, 2)),
                 # Third Convolutional Block
-                layers.Conv2D(128, (3, 3), activation="relu"),
+                layers.Conv2D(128, (3, 3), activation="relu", kernel_regularizer=l2_reg),
                 layers.BatchNormalization(),
                 layers.MaxPooling2D((2, 2)),
                 # Flatten and Dense Layers
                 layers.Flatten(),
                 layers.Dropout(0.5),
-                layers.Dense(256, activation="relu"),
+                layers.Dense(128, activation="relu", kernel_regularizer=l2_reg),
                 layers.BatchNormalization(),
                 layers.Dropout(0.5),
                 layers.Dense(num_classes, activation="softmax"),
@@ -117,13 +43,22 @@ class CharacterRecognitionModel:
         return model
 
     def train(self, data_dir, epochs=50, batch_size=32):
-        # Load and preprocess data
-        images, labels, self.label_map = self.load_and_preprocess_data(data_dir)
+        # Ensure TensorFlow uses GPU
+        physical_devices = tf.config.list_physical_devices("GPU")
+        if physical_devices:
+            print(f"GPU devices available: {len(physical_devices)}")
+            # Set memory growth to avoid consuming all GPU memory at once
+            for device in physical_devices:
+                tf.config.experimental.set_memory_growth(device, True)
+            print("Using GPU for computations")
+        else:
+            print("No GPU found. Using CPU instead.")
 
-        # Split data
-        X_train, X_test, y_train, y_test = train_test_split(
-            images, labels, test_size=0.2, random_state=42
+        # Load data from train
+        X_train, y_train, _, self.label_map = self.load_data_from_folder(
+            data_dir, load_label_map=False
         )
+        X_val, y_val, _, _ = self.load_data_from_folder("val_datasets")
 
         # Create and compile model
         num_classes = len(self.label_map)
@@ -138,7 +73,7 @@ class CharacterRecognitionModel:
         train_dataset = tf.data.Dataset.from_tensor_slices((X_train, y_train))
         train_dataset = train_dataset.shuffle(1000).batch(batch_size)
 
-        test_dataset = tf.data.Dataset.from_tensor_slices((X_test, y_test)).batch(
+        val_dataset = tf.data.Dataset.from_tensor_slices((X_val, y_val)).batch(
             batch_size
         )
 
@@ -146,7 +81,7 @@ class CharacterRecognitionModel:
         self.history = self.model.fit(
             train_dataset,
             epochs=epochs,
-            validation_data=test_dataset,
+            validation_data=val_dataset,
             callbacks=[
                 tf.keras.callbacks.EarlyStopping(
                     monitor="val_loss", patience=5, restore_best_weights=True
@@ -157,20 +92,26 @@ class CharacterRecognitionModel:
         # Save model and label mapping
         self.save_model()
 
-        # Save training history - save the history.history directly
-        np.save("model/training_history.npy", self.history.history)
-
         return self.history
 
     def save_model(
         self,
         model_path="model/hand_drawn_character_model.keras",
         label_map_path="model/label_map.json",
+        history_path="model/training_history.json",
     ):
-        self.model.save(model_path)
-        # Save label map with proper Unicode encoding
+        os.makedirs(os.path.dirname(model_path), exist_ok=True)
+        with open(model_path, "wb") as f:
+            self.model.save(model_path)
+
+        # Save label map
         with open(label_map_path, "w", encoding="utf-8") as f:
             json.dump(self.label_map, f, ensure_ascii=False, indent=2)
+
+        # Save training history as JSON
+        if self.history is not None:
+            with open(history_path, "w", encoding="utf-8") as f:
+                json.dump(self.history.history, f, indent=2)
 
     def load_model(
         self,
@@ -215,15 +156,26 @@ class CharacterRecognitionModel:
 
         return predicted_label, confidence
 
-    def load_test_data(self, data_dir, img_size=(128, 128)):
-        """Load test data for evaluation"""
+    def load_data_from_folder(self, data_dir, img_size=(128, 128), load_label_map=True):
+        """Load image data and optionally build or load label mapping."""
         images = []
         labels = []
-        true_labels = []  # Store actual label names
+        true_labels = []
+        label_map = {}
 
-        # Load label mapping
-        with open("model/label_map.json", "r", encoding="utf-8") as f:
-            label_map = json.load(f)
+        if load_label_map:
+            with open("model/label_map.json", "r", encoding="utf-8") as f:
+                label_map = json.load(f)
+        else:
+            # Dynamically create label map from folder names
+            classes = sorted(
+                [
+                    d
+                    for d in os.listdir(data_dir)
+                    if os.path.isdir(os.path.join(data_dir, d))
+                ]
+            )
+            label_map = {class_name: idx for idx, class_name in enumerate(classes)}
 
         for class_name, label_idx in label_map.items():
             class_path = os.path.join(data_dir, class_name)
