@@ -2,6 +2,7 @@ import time
 from utils import CharacterRecognitionModel, VisualizationManager
 import numpy as np
 from sklearn.metrics import classification_report
+import json
 
 
 def evaluate_model():
@@ -16,7 +17,7 @@ def evaluate_model():
 
     # Load test data
     print("Loading test data...")
-    X_test, y_test, true_labels, label_map = model.load_test_data("test_datasets")
+    X_test, y_test, _, label_map = model.load_data_from_folder("test_datasets")
 
     # Make predictions
     print("\nMaking predictions...")
@@ -46,7 +47,7 @@ def evaluate_model():
     # Load and plot training history
     try:
         # Load the history directly as a dictionary
-        history_dict = np.load("training_history.npy", allow_pickle=True).item()
+        history_dict = json.load(open("model/training_history.json"))
 
         # Create a simple object to match the plotting function's expectations
         class HistoryWrapper:
