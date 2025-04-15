@@ -17,13 +17,9 @@ def train_new_model():
         print("Starting model training...")
         print(f"Using dataset from: {dataset_path}")
 
-        history = model.train(data_dir=dataset_path, epochs=10, batch_size=32)
+        history = model.train(data_dir=dataset_path)
 
         print("\nModel training completed!")
-        print("Files saved:")
-        print("- hand_drawn_character_model.keras")
-        print("- label_map.json")
-        print("- training_history.npy")
 
         return model, history
 
