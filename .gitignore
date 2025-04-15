@@ -9,3 +9,5 @@ __pycache__
 augmented_images
 test_datasets
 train_datasets
+val_datasets
+eval
