@@ -13,23 +13,25 @@ class DrawingApp:
         self.root.title("Hand Drawing Application")
 
         # Initialize Lao characters
+        # Store vowels as tuples: (display_format, actual_vowel_char, position)
+        # position can be "pre" (before consonant), "post" (after consonant), or "both" (surrounds consonant)
         self.lao_vowels = [
-            "xະ",
-            "xາ",
-            "xິ",
-            "xີ",
-            "xຶ",
-            "xື",
-            "xຸ",
-            "xູ",
-            "ເx",
-            "ໂx",
-            "ໃx",
-            "ໄx",
-            "xຽ",
-            "xໍ",
-            "xັ",
-            "xົ",
+            ("xະ", "ະ", "post"),
+            ("xາ", "າ", "post"),
+            ("xິ", "ິ", "post"),
+            ("xີ", "ີ", "post"),
+            ("xຶ", "ຶ", "post"),
+            ("xື", "ື", "post"),
+            ("xຸ", "ຸ", "post"),
+            ("xູ", "ູ", "post"),
+            ("ເx", "ເ", "pre"),
+            ("ໂx", "ໂ", "pre"),
+            ("ໃx", "ໃ", "pre"),
+            ("ໄx", "ໄ", "pre"),
+            ("xຽ", "ຽ", "post"),
+            ("xໍ", "ໍ", "post"),
+            ("xັ", "ັ", "post"),
+            ("xົ", "ົ", "post"),
         ]
         self.lao_consonants = [
             "ກ",
@@ -175,7 +177,10 @@ class DrawingApp:
         6. Click 'Clear Canvas' or press 'C' to clear 
         """
         self.instruction_label = ttk.Label(
-            self.instruction_frame, text=instructions, justify=tk.LEFT, font=("Phetsarath OT", 15)
+            self.instruction_frame,
+            text=instructions,
+            justify=tk.LEFT,
+            font=("Phetsarath OT", 15),
         )
         self.instruction_label.pack(padx=5, pady=5)
 
@@ -281,10 +286,9 @@ class DrawingApp:
         self.settings_container = ttk.Frame(self.right_frame)
         self.setup_settings_panel()
 
-        # Bind keyboard shortcuts  
-        self.root.bind('<c>', lambda e: self.clear_canvas())  
-        self.root.bind('<s>', lambda e: self.save_drawing())  
-
+        # Bind keyboard shortcuts
+        self.root.bind("<c>", lambda e: self.clear_canvas())
+        self.root.bind("<s>", lambda e: self.save_drawing())
 
         # Configure scrolling
         self.right_frame.bind("<Configure>", self.on_frame_configure)
@@ -414,7 +418,8 @@ class DrawingApp:
     def update_character_list(self):
         """Update the character list in the combobox based on selected folder"""
         if self.save_folder.get() == "vowels":
-            char_list = self.lao_vowels
+            # Get the display format for vowels
+            char_list = [vowel[0] for vowel in self.lao_vowels]
             current_index = self.current_vowel_index
         else:
             char_list = self.lao_consonants
@@ -551,7 +556,7 @@ class DrawingApp:
                 # Update canvas preview
                 canvas_display = cv2.resize(
                     self.drawing_canvas.get_canvas(),
-                    (256,256),
+                    (256, 256),
                     interpolation=cv2.INTER_NEAREST,
                 )
                 canvas_image = Image.fromarray(canvas_display)
@@ -570,7 +575,9 @@ class DrawingApp:
     def update_current_character(self):
         """Update the display of the current character and progress"""
         if self.save_folder.get() == "vowels":
-            current_char = self.lao_vowels[self.current_vowel_index]
+            current_char = self.lao_vowels[self.current_vowel_index][
+                0
+            ]  # Display format
             progress = f"Vowel {self.current_vowel_index + 1}/{len(self.lao_vowels)}"
         else:
             current_char = self.lao_consonants[self.current_consonant_index]
@@ -592,7 +599,11 @@ class DrawingApp:
         selected = self.selected_char.get()
         if selected:
             if self.save_folder.get() == "vowels":
-                self.current_vowel_index = self.lao_vowels.index(selected)
+                # Find the index by display format
+                for i, vowel in enumerate(self.lao_vowels):
+                    if vowel[0] == selected:
+                        self.current_vowel_index = i
+                        break
             else:
                 self.current_consonant_index = self.lao_consonants.index(selected)
             self.update_current_character()
@@ -630,13 +641,13 @@ class DrawingApp:
                 os.makedirs(consonants_dir)
 
             # Get current character
-            current_char = (
-                self.lao_vowels[self.current_vowel_index]
-                if self.save_folder.get() == "vowels"
-                else self.lao_consonants[self.current_consonant_index]
-            )
+            if self.save_folder.get() == "vowels":
+                # Get the actual vowel character (not the display format)
+                current_char = self.lao_vowels[self.current_vowel_index][1]
+            else:
+                current_char = self.lao_consonants[self.current_consonant_index]
 
-            # Create character-specific directory
+            # Create character-specific directory using Unicode code point
             char_dir = os.path.join(
                 "datasets", self.save_folder.get(), f"char_{ord(current_char):04d}"
             )
@@ -659,13 +670,24 @@ class DrawingApp:
 
                 # Create a metadata file to store character information
                 metadata_file = os.path.join(char_dir, "metadata.txt")
+                display_char = (
+                    self.lao_vowels[self.current_vowel_index][0]
+                    if self.save_folder.get() == "vowels"
+                    else current_char
+                )
+
                 if not os.path.exists(metadata_file):
                     with open(metadata_file, "w", encoding="utf-8") as f:
                         f.write(f"Character: {current_char}\n")
+                        f.write(f"Display Format: {display_char}\n")
                         f.write(f"Unicode: {ord(current_char)}\n")
+                        if self.save_folder.get() == "vowels":
+                            f.write(
+                                f"Position: {self.lao_vowels[self.current_vowel_index][2]}\n"
+                            )
 
                 self.status_label.config(
-                    text=f"Saved '{current_char}' as '{os.path.basename(filename)}' in char_{ord(current_char):04d}"
+                    text=f"Saved '{display_char}' as '{os.path.basename(filename)}' in char_{ord(current_char):04d}"
                 )
                 self.drawing_canvas.clear()
                 self.next_character()
@@ -675,6 +697,7 @@ class DrawingApp:
 
         except Exception as e:
             self.status_label.config(text=f"Error saving file: {str(e)}")
+            print(f"Exception during save: {str(e)}")
 
     def on_closing(self):
         self.is_recording = False
