@@ -4,7 +4,7 @@ description = "Add a short description here"
 name = "Lao_air_writting"
 requires-python = ">= 3.11, <3.12"
 version = "0.1.0"
-dependencies = ["mediapipe>=0.10.14,<0.11", "tensorflow>=2.14.0,<3", "certifi"]
+dependencies = [ "certifi", "mediapipe>=0.10.14,<0.11", "tensorflow>=2.14.0,<3"]
 
 [build-system]
 build-backend = "hatchling.build"
@@ -18,18 +18,18 @@ platforms = ["win-64"]
 lao_air_writting = { path = ".", editable = true }
 
 [tool.pixi.dependencies]
-opencv = ">=4.10.0,<5"
+opencv = ">=4.11.0,<5"
 numpy = "<2"
-scikit-learn = ">=1.6.0,<2"
-pillow = ">=11.0.0,<12"
+pillow = ">=11.1.0,<12"
 seaborn = ">=0.13.2,<0.14"
 fastapi = ">=0.115.12,<0.116"
-uvicorn = ">=0.34.0,<0.35"
+uvicorn = ">=0.34.1,<0.35"
+scikit-learn = ">=1.6.1,<2"
 
 [tool.pixi.tasks]
 collect = "python ./src/collect_data/main.py"
 augment = "python ./src/augment_image/main.py"
-evaluate = "python ./src/lao_air_writting/evaluate_model.py"
+eval = "python ./src/lao_air_writting/evaluate_model.py"
 train = "python ./src/lao_air_writting/train_model.py"
 test = "python ./src/lao_air_writting/test_app.py"
 split = "python ./src/augment_image/split_data.py"

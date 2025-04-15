@@ -109,7 +109,7 @@ The project includes seven main commands for different stages of the process:
 -   Evaluate Model
 
     ```bash
-    pixi run evaluate
+    pixi run eval
     ```
 
     -   Evaluates the trained model's performance
