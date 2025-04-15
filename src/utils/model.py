@@ -33,7 +33,7 @@ class CharacterRecognitionModel:
                 # Flatten and Dense Layers
                 layers.Flatten(),
                 layers.Dropout(0.5),
-                layers.Dense(128, activation="relu", kernel_regularizer=l2_reg),
+                layers.Dense(256, activation="relu", kernel_regularizer=l2_reg),
                 layers.BatchNormalization(),
                 layers.Dropout(0.5),
                 layers.Dense(num_classes, activation="softmax"),
