@@ -64,17 +64,17 @@ def evaluate_model():
         final_val_acc = history_dict["val_accuracy"][-1]
         acc_diff = final_train_acc - final_val_acc
 
-        print("\n=== Overfitting Analysis ===")
+        print("\n=== Model Generalization Analysis ===")
         print(f"Final Training Accuracy: {final_train_acc:.4f}")
         print(f"Final Validation Accuracy: {final_val_acc:.4f}")
         print(f"Accuracy Difference: {acc_diff:.4f}")
 
-        if acc_diff > 0.1:
-            print(
-                "WARNING: Model shows signs of overfitting (accuracy difference > 0.1)"
-            )
+        if final_train_acc < 0.5 and final_val_acc < 0.5:
+            print("WARNING: Model shows signs of underfitting (low accuracy on both training and validation)")
+        elif acc_diff > 0.1:
+            print("WARNING: Model shows signs of overfitting (accuracy difference > 0.1)")
         else:
-            print("Model shows no significant signs of overfitting")
+            print("Model shows no significant signs of overfitting or underfitting")
 
     except Exception as e:
         print(f"\nCouldn't load training history: {e}")
