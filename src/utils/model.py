@@ -1,6 +1,5 @@
 import tensorflow as tf
-from tensorflow.keras import layers, models  # type: ignore
-from tensorflow.keras import regularizers # type: ignore
+from keras import layers, models, Input
 import cv2
 import numpy as np
 import os
@@ -14,28 +13,27 @@ class CharacterRecognitionModel:
         self.history = None
 
     def create_cnn_model(self, num_classes):
-        l2_reg = regularizers.l2(0.001)
-        
         model = models.Sequential(
             [
+                Input(shape=(128, 128, 1)),
                 # First Convolutional Block
-                layers.Conv2D(32, (3, 3), activation="relu", kernel_regularizer=l2_reg, input_shape=(128, 128, 1)),
+                layers.Conv2D(32, (3, 3), activation="relu"),
                 layers.BatchNormalization(),
                 layers.MaxPooling2D((2, 2)),
                 # Second Convolutional Block
-                layers.Conv2D(64, (3, 3), activation="relu", kernel_regularizer=l2_reg),
+                layers.Conv2D(64, (3, 3), activation="relu"),
                 layers.BatchNormalization(),
                 layers.MaxPooling2D((2, 2)),
                 # Third Convolutional Block
-                layers.Conv2D(128, (3, 3), activation="relu", kernel_regularizer=l2_reg),
+                layers.Conv2D(128, (3, 3), activation="relu"),
                 layers.BatchNormalization(),
                 layers.MaxPooling2D((2, 2)),
                 # Flatten and Dense Layers
                 layers.Flatten(),
-                layers.Dropout(0.5),
-                layers.Dense(256, activation="relu", kernel_regularizer=l2_reg),
+                layers.Dropout(0.3),
+                layers.Dense(256, activation="relu"),
                 layers.BatchNormalization(),
-                layers.Dropout(0.5),
+                layers.Dropout(0.3),
                 layers.Dense(num_classes, activation="softmax"),
             ]
         )
@@ -54,27 +52,26 @@ class CharacterRecognitionModel:
         else:
             print("No GPU found. Using CPU instead.")
 
-        # Load data from train
-        X_train, y_train, _, self.label_map = self.load_data_from_folder(
-            data_dir, load_label_map=False
+        # Load datasets
+        train_dataset, _, self.label_map = self.load_data_from_folder(
+            data_dir, load_label_map=False, shuffle_data=True
         )
-        X_val, y_val, _, _ = self.load_data_from_folder("val_datasets")
+        val_dataset, _, _ = self.load_data_from_folder(
+            "val_datasets", load_label_map=True
+        )
+
+        # Batch datasets
+        train_dataset = train_dataset.batch(batch_size)
+        val_dataset = val_dataset.batch(batch_size)
 
         # Create and compile model
         num_classes = len(self.label_map)
         self.model = self.create_cnn_model(num_classes)
+        optimizer = tf.keras.optimizers.Adam(learning_rate=1e-4)  # 0.0001
         self.model.compile(
-            optimizer="adam",
+            optimizer=optimizer,
             loss="sparse_categorical_crossentropy",
             metrics=["accuracy"],
-        )
-
-        # Prepare datasets
-        train_dataset = tf.data.Dataset.from_tensor_slices((X_train, y_train))
-        train_dataset = train_dataset.shuffle(1000).batch(batch_size)
-
-        val_dataset = tf.data.Dataset.from_tensor_slices((X_val, y_val)).batch(
-            batch_size
         )
 
         # Train model
@@ -84,8 +81,15 @@ class CharacterRecognitionModel:
             validation_data=val_dataset,
             callbacks=[
                 tf.keras.callbacks.EarlyStopping(
-                    monitor="val_loss", patience=5, restore_best_weights=True
-                )
+                    monitor="val_loss", patience=7, restore_best_weights=True
+                ),
+                tf.keras.callbacks.ReduceLROnPlateau(
+                    monitor="val_loss",
+                    factor=0.1,  # Reduce learning rate by a factor of 5
+                    patience=3,  # Reduce if val_loss doesn't improve for 3 epochs
+                    min_lr=1e-6,  # Minimum learning rate
+                    verbose=1,
+                ),
             ],
         )
 
@@ -156,18 +160,26 @@ class CharacterRecognitionModel:
 
         return predicted_label, confidence
 
-    def load_data_from_folder(self, data_dir, img_size=(128, 128), load_label_map=True):
-        """Load image data and optionally build or load label mapping."""
-        images = []
-        labels = []
-        true_labels = []
-        label_map = {}
+    def load_data_from_folder(
+        self, data_dir, img_size=(128, 128), load_label_map=True, shuffle_data=False
+    ):
+        """Load image data using tf.data for efficient loading and preprocessing."""
 
+        def process_path(file_path, label):
+            # Load and preprocess image
+            img = tf.io.read_file(file_path)
+            img = tf.image.decode_image(
+                img, channels=1, expand_animations=False
+            )  # Grayscale
+            img = tf.image.resize(img, img_size, method="area")
+            img = img / 255.0  # Normalize
+            return img, label
+
+        # Load or create label map
         if load_label_map:
             with open("model/label_map.json", "r", encoding="utf-8") as f:
                 label_map = json.load(f)
         else:
-            # Dynamically create label map from folder names
             classes = sorted(
                 [
                     d
@@ -177,22 +189,27 @@ class CharacterRecognitionModel:
             )
             label_map = {class_name: idx for idx, class_name in enumerate(classes)}
 
+        # Gather file paths and labels
+        file_paths = []
+        labels = []
+        true_labels = []
         for class_name, label_idx in label_map.items():
             class_path = os.path.join(data_dir, class_name)
             if not os.path.exists(class_path):
                 continue
-
             for img_file in os.listdir(class_path):
                 if img_file.lower().endswith((".png", ".jpg", ".jpeg")):
-                    img_path = os.path.join(class_path, img_file)
-                    img = tf.keras.preprocessing.image.load_img(
-                        img_path, color_mode="grayscale", target_size=img_size
-                    )
-                    img_array = tf.keras.preprocessing.image.img_to_array(img)
-                    img_array = img_array / 255.0
-
-                    images.append(img_array)
+                    file_paths.append(os.path.join(class_path, img_file))
                     labels.append(label_idx)
                     true_labels.append(class_name)
 
-        return np.array(images), np.array(labels), true_labels, label_map
+        # Create tf.data.Dataset
+        dataset = tf.data.Dataset.from_tensor_slices((file_paths, labels))
+        dataset = dataset.map(process_path, num_parallel_calls=tf.data.AUTOTUNE).cache()
+
+        if shuffle_data:
+            dataset = dataset.shuffle(1000)  # Shuffle only if requested
+
+        dataset = dataset.prefetch(tf.data.AUTOTUNE)
+
+        return dataset, true_labels, label_map
