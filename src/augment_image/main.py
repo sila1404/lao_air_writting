@@ -1,4 +1,4 @@
-from tensorflow.keras.preprocessing.image import ImageDataGenerator # type: ignore
+from keras.preprocessing.image import ImageDataGenerator
 from PIL import Image
 import numpy as np
 import os
@@ -58,11 +58,11 @@ def augment_images(input_folder: str, output_folder: str) -> None:
     print(f"Found {len(image_files)} images.")
 
     aug_iterations = {
-        "rotated": 15,
+        "rotated": 10,
         "width_shifted": 10,
         "height_shifted": 10,
         "zoomed": 10,
-        "sheared": 15,
+        "sheared": 10,
     }
 
     augmentations = create_augmentations()
