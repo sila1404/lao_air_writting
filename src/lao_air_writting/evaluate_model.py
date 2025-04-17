@@ -17,27 +17,47 @@ def evaluate_model():
 
     # Load test data
     print("Loading test data...")
-    X_test, y_test, _, label_map = model.load_data_from_folder("test_datasets")
+    test_dataset, true_labels, label_map = model.load_data_from_folder("test_datasets")
 
-    # Make predictions
+    # Instead of looping, let's directly use `test_dataset` and batch the data
+    test_dataset = test_dataset.batch(
+        32
+    )  # Adjust batch size based on your available memory
+
+    # Initialize empty lists to store predictions and true labels
+    y_test = []
+    y_pred = []
+
+    # Make predictions in batches
     print("\nMaking predictions...")
     start_time = time.time()
-    predictions = model.model.predict(X_test)
+
+    # Loop through the test dataset and accumulate predictions
+    for images, labels in test_dataset:
+        # Make predictions for the batch
+        predictions = model.model.predict(images)
+
+        # Convert predictions to class labels and store them
+        y_pred_batch = np.argmax(predictions, axis=1)
+        y_pred.extend(y_pred_batch)
+
+        # Append true labels (convert TensorFlow tensor to NumPy)
+        y_test.extend(labels.numpy())
+
+    # Calculate prediction time
     prediction_time = time.time() - start_time
-    # Convert predictions to class labels
-    y_pred = np.argmax(predictions, axis=1)
 
     # Calculate metrics
     print("\n=== Model Evaluation Results ===")
-    print(f"\nPrediction time for {len(X_test)} samples: {prediction_time:.2f} seconds")
+    print(f"\nPrediction time for {len(y_test)} samples: {prediction_time:.2f} seconds")
     print(
-        f"Average prediction time per sample: {(prediction_time/len(X_test))*1000:.2f} ms"
+        f"Average prediction time per sample: {(prediction_time / len(y_test)) * 1000:.2f} ms"
     )
 
     # Print classification report
     label_names = list(label_map.keys())
     print("\nClassification Report:")
-    print(classification_report(y_test, y_pred, target_names=label_names))
+    print(classification_report(y_test, y_pred, target_names=label_names, zero_division=0))
 
     # Plot confusion matrix
     print("\nGenerating confusion matrix...")
@@ -70,9 +90,13 @@ def evaluate_model():
         print(f"Accuracy Difference: {acc_diff:.4f}")
 
         if final_train_acc < 0.5 and final_val_acc < 0.5:
-            print("WARNING: Model shows signs of underfitting (low accuracy on both training and validation)")
+            print(
+                "WARNING: Model shows signs of underfitting (low accuracy on both training and validation)"
+            )
         elif acc_diff > 0.1:
-            print("WARNING: Model shows signs of overfitting (accuracy difference > 0.1)")
+            print(
+                "WARNING: Model shows signs of overfitting (accuracy difference > 0.1)"
+            )
         else:
             print("Model shows no significant signs of overfitting or underfitting")
 
