@@ -17,23 +17,23 @@ class CharacterRecognitionModel:
             [
                 Input(shape=(128, 128, 1)),
                 # First Convolutional Block
-                layers.Conv2D(32, (3, 3), activation="relu"),
+                layers.Conv2D(64, (5, 5), activation="relu"),
+                layers.BatchNormalization(),
+                layers.MaxPooling2D((2, 2)),
+                # First Convolutional Block
+                layers.Conv2D(128, (3, 3), activation="relu"),
                 layers.BatchNormalization(),
                 layers.MaxPooling2D((2, 2)),
                 # Second Convolutional Block
-                layers.Conv2D(64, (3, 3), activation="relu"),
-                layers.BatchNormalization(),
-                layers.MaxPooling2D((2, 2)),
-                # Third Convolutional Block
-                layers.Conv2D(128, (3, 3), activation="relu"),
+                layers.Conv2D(256, (3, 3), activation="relu"),
                 layers.BatchNormalization(),
                 layers.MaxPooling2D((2, 2)),
                 # Flatten and Dense Layers
                 layers.Flatten(),
-                layers.Dropout(0.3),
-                layers.Dense(256, activation="relu"),
+                layers.Dropout(0.4),
+                layers.Dense(512, activation="relu"),
                 layers.BatchNormalization(),
-                layers.Dropout(0.3),
+                layers.Dropout(0.4),
                 layers.Dense(num_classes, activation="softmax"),
             ]
         )
@@ -67,7 +67,9 @@ class CharacterRecognitionModel:
         # Create and compile model
         num_classes = len(self.label_map)
         self.model = self.create_cnn_model(num_classes)
-        optimizer = tf.keras.optimizers.Adam(learning_rate=1e-4)  # 0.0001
+        optimizer = tf.keras.optimizers.AdamW(
+            learning_rate=1e-3, weight_decay=4e-3
+        )  # 0.001
         self.model.compile(
             optimizer=optimizer,
             loss="sparse_categorical_crossentropy",
@@ -81,12 +83,12 @@ class CharacterRecognitionModel:
             validation_data=val_dataset,
             callbacks=[
                 tf.keras.callbacks.EarlyStopping(
-                    monitor="val_loss", patience=7, restore_best_weights=True
+                    monitor="val_loss", patience=10, restore_best_weights=True
                 ),
                 tf.keras.callbacks.ReduceLROnPlateau(
                     monitor="val_loss",
-                    factor=0.1,  # Reduce learning rate by a factor of 5
-                    patience=3,  # Reduce if val_loss doesn't improve for 3 epochs
+                    factor=0.2,  # Reduce learning rate by a factor of 5
+                    patience=4,  # Reduce if val_loss doesn't improve for 4 epochs
                     min_lr=1e-6,  # Minimum learning rate
                     verbose=1,
                 ),
