@@ -2,16 +2,41 @@ from keras.preprocessing.image import ImageDataGenerator
 from PIL import Image
 import numpy as np
 import os
+import albumentations as A
 from typing import Dict, List
 
 
-def create_augmentations() -> Dict[str, ImageDataGenerator]:
+def create_keras_augmentations() -> Dict[str, ImageDataGenerator]:
     return {
-        "rotated": ImageDataGenerator(rotation_range=40),
+        "rotated": ImageDataGenerator(rotation_range=30),
         "width_shifted": ImageDataGenerator(width_shift_range=0.2),
         "height_shifted": ImageDataGenerator(height_shift_range=0.2),
         "zoomed": ImageDataGenerator(zoom_range=0.2),
-        "sheared": ImageDataGenerator(shear_range=0.2),
+    }
+
+
+def create_albumentation_transforms() -> Dict[str, A.Compose]:
+    return {
+        "gaussian_noise": A.Compose(
+            [
+                A.GaussNoise(var_limit=(3.0, 15.0), p=1.0),
+            ]
+        ),
+        "blur": A.Compose(
+            [
+                A.Blur(blur_limit=(3, 7), p=1.0),
+            ]
+        ),
+        "motion_blur": A.Compose(
+            [
+                A.MotionBlur(blur_limit=(3, 8), p=1.0),
+            ]
+        ),
+        "perspective": A.Compose(
+            [
+                A.Perspective(scale=(0.05, 0.1), p=1.0),
+            ]
+        ),
     }
 
 
@@ -38,6 +63,29 @@ def process_single_image(
         print(f"Error processing {aug_type} for {base_name}: {str(e)}")
 
 
+def process_albumentation_image(
+    img: np.ndarray,
+    transform: A.Compose,
+    output_path: str,
+    base_name: str,
+    aug_type: str,
+    iterations: int = 1,
+) -> None:
+    try:
+        for i in range(iterations):
+            # Apply the transformation
+            augmented = transform(image=img)
+            augmented_img = augmented["image"]
+
+            # Convert to PIL Image and save
+            output_filename = os.path.join(
+                output_path, f"{base_name}_{aug_type}_{i + 1}.jpg"
+            )
+            Image.fromarray(augmented_img).save(output_filename)
+    except Exception as e:
+        print(f"Error processing {aug_type} for {base_name}: {str(e)}")
+
+
 def get_all_image_files(input_folder: str) -> List[str]:
     image_files = []
     for root, _, files in os.walk(input_folder):
@@ -57,15 +105,24 @@ def augment_images(input_folder: str, output_folder: str) -> None:
 
     print(f"Found {len(image_files)} images.")
 
+    # Define augmentation iterations
     aug_iterations = {
+        # Keras augmentations
         "rotated": 10,
         "width_shifted": 10,
         "height_shifted": 10,
         "zoomed": 10,
-        "sheared": 10,
+        # Albumentations augmentations
+        "gaussian_noise": 10,
+        "blur": 10,
+        "motion_blur": 10,
+        "perspective": 10,
     }
 
-    augmentations = create_augmentations()
+    # Create augmentation generators/transforms
+    keras_augmentations = create_keras_augmentations()
+    albumentation_transforms = create_albumentation_transforms()
+
     os.makedirs(output_folder, exist_ok=True)
 
     for rel_path in image_files:
@@ -75,7 +132,6 @@ def augment_images(input_folder: str, output_folder: str) -> None:
 
         try:
             print(f"\nProcessing {img_path}...")
-
             # Use Pillow to open image
             with Image.open(img_path) as pil_img:
                 pil_img = pil_img.convert("RGB")
@@ -88,14 +144,27 @@ def augment_images(input_folder: str, output_folder: str) -> None:
             )
             pil_img.save(original_output_path)
 
-            # Prepare for augmentation
+            # Prepare for Keras augmentation
             img_array = img.reshape((1,) + img.shape)
 
-            for aug_type, datagen in augmentations.items():
+            # Apply Keras augmentations
+            for aug_type, datagen in keras_augmentations.items():
                 print(f"  Applying {aug_type}...")
                 process_single_image(
                     img_array,
                     datagen,
+                    output_subdir,
+                    base_name,
+                    aug_type,
+                    aug_iterations[aug_type],
+                )
+
+            # Apply Albumentations transforms
+            for aug_type, transform in albumentation_transforms.items():
+                print(f"  Applying {aug_type}...")
+                process_albumentation_image(
+                    img,
+                    transform,
                     output_subdir,
                     base_name,
                     aug_type,
