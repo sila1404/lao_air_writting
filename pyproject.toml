@@ -25,6 +25,7 @@ seaborn = ">=0.13.2,<0.14"
 fastapi = ">=0.115.12,<0.116"
 uvicorn = ">=0.34.1,<0.35"
 scikit-learn = ">=1.6.1,<2"
+albumentations = ">=2.0.5,<3"
 
 [tool.pixi.tasks]
 collect = "python ./src/collect_data/main.py"
