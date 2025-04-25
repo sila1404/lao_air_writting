@@ -595,7 +595,8 @@ class HandWritingPage:
     def clear_canvas(self):
         self.drawing_canvas.clear()
         self.result_label.config(
-            text="Draw a character to see recognition result", font=("Phetsarath OT", 10)
+            text="Draw a character to see recognition result",
+            font=("Phetsarath OT", 10),
         )
 
     def recognize_character(self):
@@ -728,8 +729,34 @@ class OCRPage:
             return
 
         try:
-            image = cv2.imread(self.current_image_path)
-            detected_text = self.ocr_processor.recognize_text(image)
+            # Read file using numpy to handle Unicode paths
+            img_np = np.fromfile(self.current_image_path, dtype=np.uint8)
+            # Decode the numpy array into an OpenCV image (use IMREAD_COLOR for color)
+            image = cv2.imdecode(img_np, cv2.IMREAD_COLOR)
+
+            # Check if image decoding was successful
+            if image is None:
+                raise ValueError(
+                    "Could not decode image file. Check file integrity or format."
+                )
+
+            detected_text, bounding_boxes = self.ocr_processor.recognize_text(
+                image, return_bbox=True
+            )
+
+            if bounding_boxes:
+                # Make sure visualize_results is defined in OCRProcessor or adjust call
+                visualized_image = self.ocr_processor.visualize_results(
+                    image, detected_text, bounding_boxes
+                )
+                # Convert back to PIL for Tkinter display
+                visualized_image_pil = Image.fromarray(
+                    cv2.cvtColor(visualized_image, cv2.COLOR_BGR2RGB)
+                )
+                display_size = (800, 600)
+                visualized_image_pil.thumbnail(display_size, Image.Resampling.LANCZOS)
+                self.current_image = ImageTk.PhotoImage(visualized_image_pil)
+                self.image_label.configure(image=self.current_image)
 
             self.result_text.delete(1.0, tk.END)
             if detected_text:
@@ -738,6 +765,12 @@ class OCRPage:
             else:
                 self.result_text.insert(tk.END, "No text detected in the image.")
 
+        except FileNotFoundError:
+            messagebox.showerror("Error", f"File not found: {self.current_image_path}")
+            self.result_text.delete(1.0, tk.END)
+            self.result_text.insert(
+                tk.END, "Error: File not found at the specified path."
+            )
         except Exception as e:
             messagebox.showerror("Error", f"OCR processing failed: {str(e)}")
             self.result_text.delete(1.0, tk.END)
