@@ -455,7 +455,8 @@ class HandWritingPage:
             self.camera_btn.configure(text="Stop Camera (F2)")
         else:
             self.camera_btn.configure(text="Start Camera (F2)")
-            # Keep the last frame visible, don't clear the image
+            # Comment next line if would like to keep the last frame visible, don't clear the image
+            self.last_frame = None
 
     def stop_camera(self):
         """Stop camera for cleanup"""
