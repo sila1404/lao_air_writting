@@ -20,17 +20,17 @@ class CharacterRecognitionModel:
                 layers.Conv2D(64, (5, 5), activation="relu"),
                 layers.BatchNormalization(),
                 layers.MaxPooling2D((2, 2)),
-                # First Convolutional Block
+                # Second Convolutional Block
                 layers.Conv2D(128, (3, 3), activation="relu"),
                 layers.BatchNormalization(),
                 layers.MaxPooling2D((2, 2)),
-                # Second Convolutional Block
+                # Third Convolutional Block
                 layers.Conv2D(256, (3, 3), activation="relu"),
                 layers.BatchNormalization(),
                 layers.MaxPooling2D((2, 2)),
                 # Flatten and Dense Layers
                 layers.Flatten(),
-                layers.Dropout(0.4),
+                layers.Dropout(0.25),
                 layers.Dense(512, activation="relu"),
                 layers.BatchNormalization(),
                 layers.Dropout(0.4),
@@ -40,7 +40,7 @@ class CharacterRecognitionModel:
 
         return model
 
-    def train(self, data_dir, epochs=50, batch_size=32):
+    def train(self, data_dir, val_dir=None, epochs=50, batch_size=32):
         # Ensure TensorFlow uses GPU
         physical_devices = tf.config.list_physical_devices("GPU")
         if physical_devices:
@@ -52,17 +52,33 @@ class CharacterRecognitionModel:
         else:
             print("No GPU found. Using CPU instead.")
 
-        # Load datasets
+        # Load training datasets
         train_dataset, _, self.label_map = self.load_data_from_folder(
             data_dir, load_label_map=False, shuffle_data=True
         )
-        val_dataset, _, _ = self.load_data_from_folder(
-            "val_datasets", load_label_map=True
-        )
-
-        # Batch datasets
         train_dataset = train_dataset.batch(batch_size)
-        val_dataset = val_dataset.batch(batch_size)
+
+        # Load validation datasets only if provided
+        val_dataset = None
+        callbacks = []
+        if val_dir:
+            val_dataset, _, _ = self.load_data_from_folder(val_dir, load_label_map=True)
+            val_dataset = val_dataset.batch(batch_size)
+
+            callbacks.extend(
+                [
+                    tf.keras.callbacks.EarlyStopping(
+                        monitor="val_loss", patience=7, restore_best_weights=True
+                    ),
+                    tf.keras.callbacks.ReduceLROnPlateau(
+                        monitor="val_loss",
+                        factor=0.2,  # Reduce learning rate by a factor of 20
+                        patience=3,  # Reduce if val_loss doesn't improve for 4 epochs
+                        min_lr=1e-6,  # Minimum learning rate
+                        verbose=1,
+                    ),
+                ]
+            )
 
         # Create and compile model
         num_classes = len(self.label_map)
@@ -80,19 +96,8 @@ class CharacterRecognitionModel:
         self.history = self.model.fit(
             train_dataset,
             epochs=epochs,
-            validation_data=val_dataset,
-            callbacks=[
-                tf.keras.callbacks.EarlyStopping(
-                    monitor="val_loss", patience=10, restore_best_weights=True
-                ),
-                tf.keras.callbacks.ReduceLROnPlateau(
-                    monitor="val_loss",
-                    factor=0.2,  # Reduce learning rate by a factor of 5
-                    patience=4,  # Reduce if val_loss doesn't improve for 4 epochs
-                    min_lr=1e-6,  # Minimum learning rate
-                    verbose=1,
-                ),
-            ],
+            validation_data=val_dataset if val_dataset else None,
+            callbacks=callbacks if callbacks else None,
         )
 
         # Save model and label mapping
@@ -107,8 +112,8 @@ class CharacterRecognitionModel:
         history_path="model/training_history.json",
     ):
         os.makedirs(os.path.dirname(model_path), exist_ok=True)
-        with open(model_path, "wb") as f:
-            self.model.save(model_path)
+
+        self.model.save(model_path)
 
         # Save label map
         with open(label_map_path, "w", encoding="utf-8") as f:
