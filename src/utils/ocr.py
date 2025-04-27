@@ -1,38 +1,48 @@
 import cv2
 import numpy as np
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 from .model import CharacterRecognitionModel
 from PIL import Image, ImageDraw, ImageFont
 import os
 
 
 class OCRProcessor:
+    """Optical Character Recognition Processor for Lao Handwriting."""
+
     def __init__(
         self,
         model_path: str = "model/hand_drawn_character_model.keras",
         label_map_path: str = "model/label_map.json",
-    ):
-        """Initialize OCR processor with trained model"""
+    ) -> None:
+        """
+        Initialize the OCR processor with a trained model and font settings.
+
+        Args:
+            model_path (str): Path to the trained character recognition model.
+            label_map_path (str): Path to the label map (character mappings).
+
+        Raises:
+            RuntimeError: If the model fails to load.
+        """
         self.recognizer = CharacterRecognitionModel()
         if not self.recognizer.load_model(model_path, label_map_path):
             raise RuntimeError("Failed to load character recognition model")
 
         # Parameters optimized for Lao script
-        self.min_contour_area = 25  # Small enough to catch diacritical marks
-        self.min_aspect_ratio = 0.1
-        self.max_aspect_ratio = 4.0
-        self.cluster_distance_threshold = 10
+        self.min_contour_area: int = 25
+        self.min_aspect_ratio: float = 0.1
+        self.max_aspect_ratio: float = 4.0
+        self.cluster_distance_threshold: int = 10
 
-        # Try multiple possible font locations
+        # Load font
         possible_fonts = [
             "src\\assets\\fonts\\Phetsarath_OT.ttf",
             "C:\\Windows\\Fonts\\Phetsarath_OT.ttf",
             "\\usr\\share\\fonts\\truetype\\lao\\Phetsarath_OT.ttf",
             os.path.join(os.path.dirname(__file__), "fonts", "Phetsarath_OT.ttf"),
-            # Add more potential font paths here
         ]
 
-        self.font_path = None
+        self.font_path: Optional[str] = None
         for font in possible_fonts:
             if os.path.exists(font):
                 self.font_path = font
@@ -42,7 +52,18 @@ class OCRProcessor:
             print("Warning: No suitable font found. Text display may be limited.")
 
     def preprocess_image(self, image: np.ndarray) -> np.ndarray:
-        """Preprocess the input image for better character segmentation"""
+        """
+        Preprocess the input image for better character segmentation.
+
+        Args:
+            image (np.ndarray): Input image (color or grayscale).
+
+        Returns:
+            np.ndarray: Preprocessed binary image.
+
+        Raises:
+            ValueError: If the input image is invalid.
+        """
         if image is None or image.size == 0:
             raise ValueError("Invalid input image")
 
@@ -64,7 +85,18 @@ class OCRProcessor:
         return binary
 
     def prepare_char_image(self, char_region: np.ndarray) -> np.ndarray:
-        """Prepare character image for model input"""
+        """
+        Prepare a character region image for model input.
+
+        Args:
+            char_region (np.ndarray): Cropped character region.
+
+        Returns:
+            np.ndarray: Resized (128x128) input image.
+
+        Raises:
+            ValueError: If the character region is invalid.
+        """
         if char_region is None or char_region.size == 0:
             raise ValueError("Invalid character region")
 
@@ -82,7 +114,7 @@ class OCRProcessor:
         square_img[pad_y : pad_y + h, pad_x : pad_x + w] = char_region
 
         # Add padding around the square (5% on each side)
-        padding = int(max_dim * 0.4)
+        padding = int(max_dim * 0.5)
         padded_img = np.zeros(
             (max_dim + 2 * padding, max_dim + 2 * padding), dtype=np.uint8
         )
@@ -92,14 +124,21 @@ class OCRProcessor:
 
         # Resize to model input size (128x128)
         resized = cv2.resize(padded_img, (128, 128), interpolation=cv2.INTER_AREA)
-
         return resized
 
     def find_connected_components(
         self, binary_image: np.ndarray
     ) -> List[Tuple[np.ndarray, Tuple[int, int, int, int]]]:
-        """Find connected components in the binary image"""
-        # Find contours
+        """
+        Find connected components in a binary image.
+
+        Args:
+            binary_image (np.ndarray): Binary preprocessed image.
+
+        Returns:
+            List[Tuple[np.ndarray, Tuple[int, int, int, int]]]:
+                List of components with their bounding boxes.
+        """
         contours, _ = cv2.findContours(
             binary_image.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
         )
@@ -117,9 +156,9 @@ class OCRProcessor:
                 # Extract the component with boundary checking
                 if (
                     y >= 0
-                    and y + h <= binary_image.shape[0]
                     and x >= 0
-                    and x + w <= binary_image.shape[1]
+                    and (y + h) <= binary_image.shape[0]
+                    and (x + w) <= binary_image.shape[1]
                 ):
                     comp = binary_image[y : y + h, x : x + w]
                     if comp.size > 0:
@@ -130,7 +169,15 @@ class OCRProcessor:
     def group_components(
         self, components: List[Tuple[np.ndarray, Tuple[int, int, int, int]]]
     ) -> List[List[int]]:
-        """Group components that belong to the same character with improved Lao script handling"""
+        """
+        Group components that likely belong to the same character.
+
+        Args:
+            components (List[Tuple[np.ndarray, Tuple[int, int, int, int]]]): List of components.
+
+        Returns:
+            List[List[int]]: Groups of component indices.
+        """
         if not components:
             return []
 
@@ -180,21 +227,28 @@ class OCRProcessor:
 
         return groups
 
-    def recognize_text(self, image: np.ndarray, return_bbox: bool = False) -> str:
-        """Recognize text in the given image"""
+    def recognize_text(
+        self, image: np.ndarray, return_bbox: bool = False
+    ) -> Tuple[str, List[Tuple[int, int, int, int]]]:
+        """
+        Recognize text from an image.
+
+        Args:
+            image (np.ndarray): Input image.
+            return_bbox (bool, optional): Whether to return bounding boxes. Defaults to False.
+
+        Returns:
+            Union[str, Tuple[str, List[Tuple[int, int, int, int]]]]: Recognized text and optionally bounding boxes.
+        """
         if image is None or image.size == 0:
             return ("", []) if return_bbox else ""
 
         try:
-            # Preprocess image
             binary = self.preprocess_image(image)
-
-            # Find components
             components = self.find_connected_components(binary)
             if not components:
                 return ("", []) if return_bbox else ""
 
-            # Group components
             groups = self.group_components(components)
 
             recognized_chars = []
@@ -222,11 +276,9 @@ class OCRProcessor:
                     char_region = binary[y : y + h, x : x + w]
 
                     try:
-                        # Prepare the character image
                         char_input = self.prepare_char_image(char_region)
-
-                        # Make prediction
                         predicted_char, confidence = self.recognizer.predict(char_input)
+
                         if confidence > 0.5:  # Confidence threshold
                             recognized_chars.append(predicted_char)
                             bounding_boxes.append((x, y, w, h))
@@ -247,17 +299,24 @@ class OCRProcessor:
         text: str,
         bounding_boxes: List[Tuple[int, int, int, int]],
     ) -> np.ndarray:
-        """Visualize OCR results on the image using Pillow for better text rendering"""
-        # Convert OpenCV image (BGR) to PIL Image (RGB)
-        if len(image.shape) == 2:  # If grayscale
+        """
+        Visualize OCR results by drawing bounding boxes and recognized text.
+
+        Args:
+            image (np.ndarray): Original image.
+            text (str): Recognized text.
+            bounding_boxes (List[Tuple[int, int, int, int]]): List of bounding boxes.
+
+        Returns:
+            np.ndarray: Image with drawn results.
+        """
+        if len(image.shape) == 2:
             pil_image = Image.fromarray(cv2.cvtColor(image, cv2.COLOR_GRAY2RGB))
         else:
             pil_image = Image.fromarray(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
 
-        # Create draw object
         draw = ImageDraw.Draw(pil_image)
 
-        # Load font
         try:
             if self.font_path:
                 font = ImageFont.truetype(self.font_path, 22)

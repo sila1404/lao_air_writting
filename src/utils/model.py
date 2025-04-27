@@ -1,18 +1,33 @@
 import tensorflow as tf
+import keras
 from keras import layers, models, Input
 import cv2
 import numpy as np
 import os
 import json
+from typing import Optional, Dict, Tuple, List
 
 
 class CharacterRecognitionModel:
     def __init__(self):
-        self.model = None
-        self.label_map = None
-        self.history = None
+        """
+        Initializes an empty CharacterRecognitionModel instance.
+        """
+        self.model: Optional[keras.Model] = None
+        self.label_map: Optional[Dict[str, int]] = None
+        self.history: Optional[keras.callbacks.History] = None
 
-    def create_cnn_model(self, num_classes):
+    def create_cnn_model(self, num_classes: int) -> keras.Model:
+        """
+        Creates a CNN model for character recognition.
+
+        Args:
+            num_classes (int): Number of output classes.
+
+        Returns:
+            keras.Model: Compiled CNN model.
+        """
+
         model = models.Sequential(
             [
                 Input(shape=(128, 128, 1)),
@@ -30,17 +45,36 @@ class CharacterRecognitionModel:
                 layers.MaxPooling2D((2, 2)),
                 # Flatten and Dense Layers
                 layers.Flatten(),
-                layers.Dropout(0.25),
-                layers.Dense(512, activation="relu"),
+                layers.Dropout(0.15),
+                layers.Dense(256, activation="relu"),
                 layers.BatchNormalization(),
-                layers.Dropout(0.4),
+                layers.Dropout(0.25),
                 layers.Dense(num_classes, activation="softmax"),
             ]
         )
 
         return model
 
-    def train(self, data_dir, val_dir=None, epochs=50, batch_size=32):
+    def train(
+        self,
+        data_dir: str,
+        val_dir: Optional[str] = None,
+        epochs: int = 50,
+        batch_size: int = 32,
+    ) -> keras.callbacks.History:
+        """
+        Trains the CNN model.
+
+        Args:
+            data_dir (str): Path to the training dataset directory.
+            val_dir (Optional[str], optional): Path to validation dataset. Defaults to None.
+            epochs (int, optional): Number of training epochs. Defaults to 50.
+            batch_size (int, optional): Batch size. Defaults to 32.
+
+        Returns:
+            keras.callbacks.History: Training history object.
+        """
+
         # Ensure TensorFlow uses GPU
         physical_devices = tf.config.list_physical_devices("GPU")
         if physical_devices:
@@ -58,6 +92,11 @@ class CharacterRecognitionModel:
         )
         train_dataset = train_dataset.batch(batch_size)
 
+        # Save label map early so validation can use it
+        os.makedirs("model", exist_ok=True)
+        with open("model/label_map.json", "w", encoding="utf-8") as f:
+            json.dump(self.label_map, f, ensure_ascii=False, indent=2)
+
         # Load validation datasets only if provided
         val_dataset = None
         callbacks = []
@@ -67,14 +106,14 @@ class CharacterRecognitionModel:
 
             callbacks.extend(
                 [
-                    tf.keras.callbacks.EarlyStopping(
-                        monitor="val_loss", patience=7, restore_best_weights=True
+                    keras.callbacks.EarlyStopping(
+                        monitor="val_loss", patience=10, restore_best_weights=True
                     ),
-                    tf.keras.callbacks.ReduceLROnPlateau(
+                    keras.callbacks.ReduceLROnPlateau(
                         monitor="val_loss",
                         factor=0.2,  # Reduce learning rate by a factor of 20
-                        patience=3,  # Reduce if val_loss doesn't improve for 4 epochs
-                        min_lr=1e-6,  # Minimum learning rate
+                        patience=4,  # Reduce if val_loss doesn't improve for 4 epochs
+                        min_lr=8e-6,  # Minimum learning rate
                         verbose=1,
                     ),
                 ]
@@ -83,8 +122,8 @@ class CharacterRecognitionModel:
         # Create and compile model
         num_classes = len(self.label_map)
         self.model = self.create_cnn_model(num_classes)
-        optimizer = tf.keras.optimizers.AdamW(
-            learning_rate=1e-3, weight_decay=4e-3
+        optimizer = keras.optimizers.AdamW(
+            learning_rate=1e-3, weight_decay=8e-3
         )  # 0.001
         self.model.compile(
             optimizer=optimizer,
@@ -107,30 +146,52 @@ class CharacterRecognitionModel:
 
     def save_model(
         self,
-        model_path="model/hand_drawn_character_model.keras",
-        label_map_path="model/label_map.json",
-        history_path="model/training_history.json",
+        model_path: str = "model/hand_drawn_character_model.keras",
+        history_path: str = "model/training_history.json",
     ):
+        """
+        Saves the trained model and training history to disk.
+
+        Args:
+            model_path (str, optional): Path to save the model file.
+            history_path (str, optional): Path to save training history as JSON.
+        """
+
         os.makedirs(os.path.dirname(model_path), exist_ok=True)
 
         self.model.save(model_path)
 
-        # Save label map
-        with open(label_map_path, "w", encoding="utf-8") as f:
-            json.dump(self.label_map, f, ensure_ascii=False, indent=2)
-
         # Save training history as JSON
         if self.history is not None:
+            # Convert any NumPy types to native Python types
+            history_data = {}
+            for key, values in self.history.history.items():
+                history_data[key] = [
+                    float(v) if isinstance(v, (np.float32, np.float64)) else v
+                    for v in values
+                ]
+
             with open(history_path, "w", encoding="utf-8") as f:
-                json.dump(self.history.history, f, indent=2)
+                json.dump(history_data, f, indent=2)
 
     def load_model(
         self,
-        model_path="model/hand_drawn_character_model.keras",
-        label_map_path="model/label_map.json",
-    ):
+        model_path: str = "model/hand_drawn_character_model.keras",
+        label_map_path: str = "model/label_map.json",
+    ) -> bool:
+        """
+        Loads a trained model and corresponding label map.
+
+        Args:
+            model_path (str, optional): Path to model file.
+            label_map_path (str, optional): Path to label map JSON.
+
+        Returns:
+            bool: True if loading is successful, False otherwise.
+        """
+
         try:
-            self.model = tf.keras.models.load_model(model_path)
+            self.model = keras.models.load_model(model_path)
             # Load label map with proper Unicode encoding
             with open(label_map_path, "r", encoding="utf-8") as f:
                 self.label_map = json.load(f)
@@ -139,7 +200,17 @@ class CharacterRecognitionModel:
             print(f"Error loading model: {e}")
             return False
 
-    def predict(self, canvas):
+    def predict(self, canvas: np.ndarray) -> Tuple[Optional[str], float]:
+        """
+        Predicts the character from a given image.
+
+        Args:
+            canvas (np.ndarray): Input image array (grayscale or BGR).
+
+        Returns:
+            Tuple[Optional[str], float]: Predicted label and confidence score.
+        """
+
         if self.model is None or self.label_map is None:
             return None, 0.0
 
@@ -168,9 +239,27 @@ class CharacterRecognitionModel:
         return predicted_label, confidence
 
     def load_data_from_folder(
-        self, data_dir, img_size=(128, 128), load_label_map=True, shuffle_data=False
-    ):
-        """Load image data using tf.data for efficient loading and preprocessing."""
+        self,
+        data_dir: str,
+        img_size: Tuple[int, int] = (128, 128),
+        load_label_map: bool = True,
+        shuffle_data: bool = False,
+        in_memory: bool = False,
+    ) -> Tuple[tf.data.Dataset, List[str], Dict[str, int]]:
+        """
+        Loads image dataset from a folder structure.
+
+        Args:
+            data_dir (str): Path to the dataset directory.
+            img_size (Tuple[int, int], optional): Size to resize images. Defaults to (128, 128).
+            load_label_map (bool, optional): Whether to load existing label map. Defaults to True.
+            shuffle_data (bool, optional): Whether to shuffle dataset. Defaults to False.
+            in_memory (bool, optional): Whether to fully cache dataset in memory. Defaults to False.
+
+        Returns:
+            Tuple[tf.data.Dataset, List[str], Dict[str, int]]:
+                Dataset object, true labels list, and label mapping.
+        """
 
         def process_path(file_path, label):
             # Load and preprocess image
@@ -212,7 +301,20 @@ class CharacterRecognitionModel:
 
         # Create tf.data.Dataset
         dataset = tf.data.Dataset.from_tensor_slices((file_paths, labels))
-        dataset = dataset.map(process_path, num_parallel_calls=tf.data.AUTOTUNE).cache()
+        dataset = dataset.map(process_path, num_parallel_calls=tf.data.AUTOTUNE)
+
+        if in_memory:
+            dataset = dataset.cache()
+        else:
+            os.makedirs("cache", exist_ok=True)
+            cache_path = (
+                "cache/train_cache.tf-data"
+                if shuffle_data
+                else "cache/val_cache.tf-data"
+            )
+            dataset = dataset.cache(cache_path)
+            for _ in dataset:  # Forces full traversal so TF writes the entire cache
+                pass
 
         if shuffle_data:
             dataset = dataset.shuffle(1000)  # Shuffle only if requested
