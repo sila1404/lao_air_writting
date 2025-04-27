@@ -3,6 +3,7 @@ from utils import CharacterRecognitionModel, VisualizationManager
 import numpy as np
 from sklearn.metrics import classification_report
 import json
+import os
 
 
 def evaluate_model():
@@ -13,7 +14,8 @@ def evaluate_model():
     model = CharacterRecognitionModel()
     if not model.load_model():
         print("Failed to load model")
-        return
+    else:
+        print("Model loaded")
 
     # Load test data
     print("Loading test data...")
@@ -57,7 +59,15 @@ def evaluate_model():
     # Print classification report
     label_names = list(label_map.keys())
     print("\nClassification Report:")
-    print(classification_report(y_test, y_pred, target_names=label_names, zero_division=0))
+    os.makedirs("eval", exist_ok=True)
+    report_path = "eval/evaluation_report.txt"
+    with open(report_path, "w") as f:
+        f.write(
+            classification_report(
+                y_test, y_pred, target_names=label_names, zero_division=0
+            )
+        )
+        print(f"\nClassification Report has been saved to: {report_path}")
 
     # Plot confusion matrix
     print("\nGenerating confusion matrix...")
