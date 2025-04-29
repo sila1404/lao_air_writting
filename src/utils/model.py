@@ -45,10 +45,10 @@ class CharacterRecognitionModel:
                 layers.MaxPooling2D((2, 2)),
                 # Flatten and Dense Layers
                 layers.Flatten(),
-                layers.Dropout(0.15),
-                layers.Dense(256, activation="relu"),
+                layers.Dropout(0.2),
+                layers.Dense(512, activation="relu"),
                 layers.BatchNormalization(),
-                layers.Dropout(0.25),
+                layers.Dropout(0.3),
                 layers.Dense(num_classes, activation="softmax"),
             ]
         )
@@ -107,12 +107,12 @@ class CharacterRecognitionModel:
             callbacks.extend(
                 [
                     keras.callbacks.EarlyStopping(
-                        monitor="val_loss", patience=10, restore_best_weights=True
+                        monitor="val_loss", patience=13, restore_best_weights=True
                     ),
                     keras.callbacks.ReduceLROnPlateau(
                         monitor="val_loss",
                         factor=0.2,  # Reduce learning rate by a factor of 20
-                        patience=4,  # Reduce if val_loss doesn't improve for 4 epochs
+                        patience=6,  # Reduce if val_loss doesn't improve for 4 epochs
                         min_lr=8e-6,  # Minimum learning rate
                         verbose=1,
                     ),
