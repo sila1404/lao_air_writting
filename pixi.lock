@@ -318,7 +318,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/7a/13/e503968fefabd4c6b2650af21e110aa8466fe21432cd7c43a84577a89438/tensorboard_data_server-0.7.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/d0/cc/4f2120c9638f6a06e735890780a84de354c3ad78b28dfbd67430683e3387/tensorflow-2.14.1-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl
       - pypi: https://files.pythonhosted.org/packages/d1/da/4f264c196325bb6e37a6285caec5b12a03def489b57cc1fdac02bb6272cd/tensorflow_estimator-2.14.0-py2.py3-none-any.whl
-      - pypi: https://files.pythonhosted.org/packages/66/7f/e36ae148c2f03d61ca1bff24bc13a0fef6d6825c966abef73fc6f880a23b/tensorflow_io_gcs_filesystem-0.37.1-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl
+      - pypi: https://files.pythonhosted.org/packages/e7/c4/0d44ef93add3432ce43f37fe0c205cc7b6fd685fca80054fb4a646a9dbe3/tensorflow_io_gcs_filesystem-0.31.0-cp311-cp311-manylinux_2_12_x86_64.manylinux2010_x86_64.whl
       - pypi: https://files.pythonhosted.org/packages/a6/7e/a574ccd49ad07e8b117407bac361f1e096b01f1b620365daf60ff702c936/termcolor-3.0.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/6b/11/cc635220681e93a0183390e26485430ca2c7b5f9d33b15c74c2861cb8091/urllib3-2.4.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/52/24/ab44c871b0f07f491e5d2ad12c9bd7358e527510618cb1b803a88e986db1/werkzeug-3.1.3-py3-none-any.whl
@@ -2238,11 +2238,12 @@ packages:
 - pypi: .
   name: lao-air-writting
   version: 0.1.0
-  sha256: 7a5a24758b78a5e02c8a98d4e7af96f1b0d015d05e1bffdd10ea10002ab4974d
+  sha256: b9f5940880f31a57694c9756e081be871ba60e81493182c73b58dcc3fdd6805a
   requires_dist:
   - certifi
   - mediapipe>=0.10.14,<0.11
   - tensorflow>=2.14,<2.15
+  - tensorflow-io-gcs-filesystem==0.31.0
   requires_python: '>=3.11,<3.12'
   editable: true
 - conda: https://conda.anaconda.org/conda-forge/linux-64/lcms2-2.17-h717163a_0.conda
@@ -6304,17 +6305,17 @@ packages:
   - tensorflow-gpu>=2.11.0,<2.12.0 ; extra == 'tensorflow-gpu'
   - tensorflow-rocm>=2.11.0,<2.12.0 ; extra == 'tensorflow-rocm'
   requires_python: '>=3.7,<3.12'
-- pypi: https://files.pythonhosted.org/packages/66/7f/e36ae148c2f03d61ca1bff24bc13a0fef6d6825c966abef73fc6f880a23b/tensorflow_io_gcs_filesystem-0.37.1-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl
+- pypi: https://files.pythonhosted.org/packages/e7/c4/0d44ef93add3432ce43f37fe0c205cc7b6fd685fca80054fb4a646a9dbe3/tensorflow_io_gcs_filesystem-0.31.0-cp311-cp311-manylinux_2_12_x86_64.manylinux2010_x86_64.whl
   name: tensorflow-io-gcs-filesystem
-  version: 0.37.1
-  sha256: ee7c8ee5fe2fd8cb6392669ef16e71841133041fee8a330eff519ad9b36e4556
+  version: 0.31.0
+  sha256: e417faf8755aafe52d8f8c6b5ae5bae6e4fae8326ee3acd5e9181b83bbfbae87
   requires_dist:
-  - tensorflow>=2.16.0,<2.17.0 ; extra == 'tensorflow'
-  - tensorflow-aarch64>=2.16.0,<2.17.0 ; extra == 'tensorflow-aarch64'
-  - tensorflow-cpu>=2.16.0,<2.17.0 ; extra == 'tensorflow-cpu'
-  - tensorflow-gpu>=2.16.0,<2.17.0 ; extra == 'tensorflow-gpu'
-  - tensorflow-rocm>=2.16.0,<2.17.0 ; extra == 'tensorflow-rocm'
-  requires_python: '>=3.7,<3.13'
+  - tensorflow>=2.11.0,<2.12.0 ; extra == 'tensorflow'
+  - tensorflow-aarch64>=2.11.0,<2.12.0 ; extra == 'tensorflow-aarch64'
+  - tensorflow-cpu>=2.11.0,<2.12.0 ; extra == 'tensorflow-cpu'
+  - tensorflow-gpu>=2.11.0,<2.12.0 ; extra == 'tensorflow-gpu'
+  - tensorflow-rocm>=2.11.0,<2.12.0 ; extra == 'tensorflow-rocm'
+  requires_python: '>=3.7,<3.12'
 - pypi: https://files.pythonhosted.org/packages/7f/be/df630c387a0a054815d60be6a97eb4e8f17385d5d6fe660e1c02750062b4/termcolor-2.5.0-py3-none-any.whl
   name: termcolor
   version: 2.5.0

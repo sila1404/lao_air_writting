@@ -159,7 +159,7 @@ class CharacterRecognitionModel:
 
         os.makedirs(os.path.dirname(model_path), exist_ok=True)
 
-        self.model.save(model_path)
+        self.model.save(model_path, save_format="h5")
 
         # Save training history as JSON
         if self.history is not None:
