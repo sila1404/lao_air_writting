@@ -17,11 +17,6 @@ def create_keras_augmentations() -> Dict[str, ImageDataGenerator]:
 
 def create_albumentation_transforms() -> Dict[str, A.Compose]:
     return {
-        "gaussian_noise": A.Compose(
-            [
-                A.GaussNoise(var_limit=(3.0, 15.0), p=1.0),
-            ]
-        ),
         "blur": A.Compose(
             [
                 A.Blur(blur_limit=(3, 7), p=1.0),
