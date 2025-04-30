@@ -113,7 +113,6 @@ def augment_images(input_folder: str, output_folder: str) -> None:
         "height_shifted": 10,
         "zoomed": 10,
         # Albumentations augmentations
-        "gaussian_noise": 10,
         "blur": 10,
         "motion_blur": 10,
         "perspective": 10,
