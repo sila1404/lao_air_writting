@@ -2238,7 +2238,7 @@ packages:
 - pypi: .
   name: lao-air-writting
   version: 0.1.0
-  sha256: b9f5940880f31a57694c9756e081be871ba60e81493182c73b58dcc3fdd6805a
+  sha256: a1f835640c3de9fdce5bcf1d24c6fd74fb5528dfc2c99637c3077d47927b6f73
   requires_dist:
   - certifi
   - mediapipe>=0.10.14,<0.11
