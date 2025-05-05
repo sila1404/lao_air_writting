@@ -45,10 +45,10 @@ class CharacterRecognitionModel:
                 layers.MaxPooling2D((2, 2)),
                 # Flatten and Dense Layers
                 layers.Flatten(),
-                layers.Dropout(0.2),
+                layers.Dropout(0.3),
                 layers.Dense(512, activation="relu"),
                 layers.BatchNormalization(),
-                layers.Dropout(0.3),
+                layers.Dropout(0.4),
                 layers.Dense(num_classes, activation="softmax"),
             ]
         )
@@ -63,7 +63,7 @@ class CharacterRecognitionModel:
         batch_size: int = 32,
     ) -> keras.callbacks.History:
         """
-        Trains the CNN model.
+        Trains the CNN model with TensorBoard logging.
 
         Args:
             data_dir (str): Path to the training dataset directory.
@@ -99,7 +99,15 @@ class CharacterRecognitionModel:
 
         # Load validation datasets only if provided
         val_dataset = None
-        callbacks = []
+        callbacks = [
+            keras.callbacks.TensorBoard(
+                log_dir="logs/tensorboard",
+                histogram_freq=1,  # Log histograms every epoch
+                write_graph=True,  # Log model graph
+                write_images=False,  # Disable image logging to save space
+                update_freq="epoch",  # Log metrics per epoch
+            )
+        ]
         if val_dir:
             val_dataset, _, _ = self.load_data_from_folder(val_dir, load_label_map=True)
             val_dataset = val_dataset.batch(batch_size)
@@ -112,8 +120,8 @@ class CharacterRecognitionModel:
                     keras.callbacks.ReduceLROnPlateau(
                         monitor="val_loss",
                         factor=0.2,  # Reduce learning rate by a factor of 20
-                        patience=6,  # Reduce if val_loss doesn't improve for 4 epochs
-                        min_lr=8e-6,  # Minimum learning rate
+                        patience=6,  # Reduce if val_loss doesn't improve for 6 epochs
+                        min_lr=1e-6,  # Minimum learning rate
                         verbose=1,
                     ),
                 ]
@@ -122,9 +130,7 @@ class CharacterRecognitionModel:
         # Create and compile model
         num_classes = len(self.label_map)
         self.model = self.create_cnn_model(num_classes)
-        optimizer = keras.optimizers.AdamW(
-            learning_rate=1e-3, weight_decay=8e-3
-        )  # 0.001
+        optimizer = keras.optimizers.AdamW(learning_rate=2e-4, weight_decay=1e-3)
         self.model.compile(
             optimizer=optimizer,
             loss="sparse_categorical_crossentropy",
@@ -136,7 +142,7 @@ class CharacterRecognitionModel:
             train_dataset,
             epochs=epochs,
             validation_data=val_dataset if val_dataset else None,
-            callbacks=callbacks if callbacks else None,
+            callbacks=callbacks,
         )
 
         # Save model and label mapping
