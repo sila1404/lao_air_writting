@@ -1,4 +1,4 @@
-from fastapi import FastAPI, File, UploadFile, HTTPException, BackgroundTasks
+from fastapi import FastAPI, File, UploadFile, HTTPException, BackgroundTasks, Query
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import numpy as np
@@ -89,6 +89,10 @@ def log_request(image_name: str, prediction: str, processing_time: float):
 async def predict_character(
     background_tasks: BackgroundTasks,
     image: UploadFile = File(...),
+    return_bbox: bool = Query(False, description="Whether to return bounding boxes"),
+    min_confidence: float = Query(
+        0.1, description="Minimum confidence threshold", ge=0.0, le=1.0
+    ),
 ):
     start_time = time.time()
 
@@ -119,20 +123,41 @@ async def predict_character(
                 detail="Could not decode image. Please ensure it's a valid image file.",
             )
 
-        # Process the image
-        predicted_text = ocr_processor.recognize_text(img)
+        # Process the image with proper return value handling
+        if return_bbox:
+            text, bboxes, confidence_scores, has_content = ocr_processor.recognize_text(
+                img, return_bbox=True, min_confidence=min_confidence
+            )
+            # Convert bounding boxes to a serializable format
+            bboxes_serializable = [
+                {"x": int(x), "y": int(y), "width": int(w), "height": int(h)}
+                for x, y, w, h in bboxes
+            ]
+            result = {
+                "text": text,
+                "bounding_boxes": bboxes_serializable,
+                "confidence_scores": [float(c) for c in confidence_scores],
+                "has_content": has_content,
+            }
+        else:
+            text, confidence_scores, has_content = ocr_processor.recognize_text(
+                img, return_bbox=False, min_confidence=min_confidence
+            )
+            result = {
+                "text": text,
+                "confidence_scores": [float(c) for c in confidence_scores],
+                "has_content": has_content,
+            }
 
         # Calculate processing time
         processing_time = time.time() - start_time
 
         # Log request details in the background
-        background_tasks.add_task(
-            log_request, image.filename, predicted_text, processing_time
-        )
+        background_tasks.add_task(log_request, image.filename, text, processing_time)
 
         return {
             "success": True,
-            "prediction": predicted_text,
+            "result": result,
             "processing_time_seconds": processing_time,
         }
 
