@@ -103,13 +103,13 @@ def augment_images(input_folder: str, output_folder: str) -> None:
     # Define augmentation iterations
     aug_iterations = {
         # Keras augmentations
-        "rotated": 10,
-        "width_shifted": 10,
-        "height_shifted": 10,
-        "zoomed": 10,
+        "rotated": 5,
+        "width_shifted": 5,
+        "height_shifted": 5,
+        "zoomed": 5,
         # Albumentations augmentations
-        "blur": 10,
-        "motion_blur": 10,
+        "blur": 5,
+        "motion_blur": 5,
         "perspective": 10,
     }
 
