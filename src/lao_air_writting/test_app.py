@@ -741,14 +741,17 @@ class OCRPage:
                     "Could not decode image file. Check file integrity or format."
                 )
 
-            detected_text, bounding_boxes = self.ocr_processor.recognize_text(
-                image, return_bbox=True
+            # Use a low minimum confidence to get all potential results
+            detected_text, bounding_boxes, confidence_scores, has_content = (
+                self.ocr_processor.recognize_text(
+                    image, return_bbox=True, min_confidence=0.1
+                )
             )
 
+            # Visualize results if any bounding boxes were found
             if bounding_boxes:
-                # Make sure visualize_results is defined in OCRProcessor or adjust call
                 visualized_image = self.ocr_processor.visualize_results(
-                    image, detected_text, bounding_boxes
+                    image, detected_text, bounding_boxes, confidence_scores
                 )
                 # Convert back to PIL for Tkinter display
                 visualized_image_pil = Image.fromarray(
@@ -760,11 +763,50 @@ class OCRPage:
                 self.image_label.configure(image=self.current_image)
 
             self.result_text.delete(1.0, tk.END)
-            if detected_text:
+
+            # Different response based on what was detected
+            if not has_content:
+                self.result_text.insert(
+                    tk.END, "No text elements detected in the image."
+                )
+            elif not detected_text:
+                self.result_text.insert(
+                    tk.END,
+                    "Visual elements detected but could not be recognized as text.",
+                )
+            else:
+                # Calculate average confidence
+                avg_confidence = (
+                    sum(confidence_scores) / len(confidence_scores)
+                    if confidence_scores
+                    else 0
+                )
+
+                # Display results with confidence information
                 self.result_text.insert(tk.END, "Detected Text:\n\n")
                 self.result_text.insert(tk.END, detected_text)
-            else:
-                self.result_text.insert(tk.END, "No text detected in the image.")
+
+                # Add confidence information
+                self.result_text.insert(
+                    tk.END, f"\n\nAverage confidence: {avg_confidence:.2%}\n"
+                )
+
+                # Add confidence warning if applicable
+                if avg_confidence < 0.5:
+                    self.result_text.insert(
+                        tk.END,
+                        "\nWARNING: Low confidence detection! The results may not be accurate.",
+                    )
+
+                # Add detailed confidence per character
+                if len(detected_text) > 1:
+                    self.result_text.insert(tk.END, "\n\nConfidence by character:\n")
+                    for i, (char, conf) in enumerate(
+                        zip(detected_text, confidence_scores)
+                    ):
+                        self.result_text.insert(tk.END, f"{char}: {conf:.2%}")
+                        if i < len(detected_text) - 1:
+                            self.result_text.insert(tk.END, " | ")
 
         except FileNotFoundError:
             messagebox.showerror("Error", f"File not found: {self.current_image_path}")

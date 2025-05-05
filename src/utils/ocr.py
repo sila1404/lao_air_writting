@@ -113,8 +113,8 @@ class OCRProcessor:
         # Place the character region in the center
         square_img[pad_y : pad_y + h, pad_x : pad_x + w] = char_region
 
-        # Add padding around the square (5% on each side)
-        padding = int(max_dim * 0.5)
+        # Add padding around the square (20% on each side)
+        padding = int(max_dim * 0.2)
         padded_img = np.zeros(
             (max_dim + 2 * padding, max_dim + 2 * padding), dtype=np.uint8
         )
@@ -228,31 +228,39 @@ class OCRProcessor:
         return groups
 
     def recognize_text(
-        self, image: np.ndarray, return_bbox: bool = False
-    ) -> Tuple[str, List[Tuple[int, int, int, int]]]:
+        self, image: np.ndarray, return_bbox: bool = False, min_confidence: float = 0.1
+    ) -> Tuple[str, List[Tuple[int, int, int, int]], List[float], bool]:
         """
         Recognize text from an image.
 
         Args:
             image (np.ndarray): Input image.
             return_bbox (bool, optional): Whether to return bounding boxes. Defaults to False.
+            min_confidence (float, optional): Minimum confidence to include results. Defaults to 0.1.
 
         Returns:
-            Union[str, Tuple[str, List[Tuple[int, int, int, int]]]]: Recognized text and optionally bounding boxes.
+            Union[str, Tuple[str, List[Tuple[int, int, int, int]], List[float], bool]]:
+                - Recognized text
+                - Bounding boxes (if return_bbox=True)
+                - Confidence scores for each character
+                - Flag indicating if any content was detected
         """
         if image is None or image.size == 0:
-            return ("", []) if return_bbox else ""
+            return ("", [], [], False) if return_bbox else ("", [], False)
 
         try:
             binary = self.preprocess_image(image)
             components = self.find_connected_components(binary)
             if not components:
-                return ("", []) if return_bbox else ""
+                # No components detected at all
+                return ("", [], [], False) if return_bbox else ("", [], False)
 
             groups = self.group_components(components)
 
             recognized_chars = []
             bounding_boxes = []
+            confidence_scores = []
+            has_content = False  # Flag to indicate if any content was detected
 
             for group in groups:
                 # Get the bounding box that contains all components in the group
@@ -274,30 +282,37 @@ class OCRProcessor:
                     and y + h <= binary.shape[0]
                 ):
                     char_region = binary[y : y + h, x : x + w]
+                    has_content = True  # We have found some visual content
 
                     try:
                         char_input = self.prepare_char_image(char_region)
                         predicted_char, confidence = self.recognizer.predict(char_input)
 
-                        if confidence > 0.5:  # Confidence threshold
+                        # Include all results above min_confidence
+                        if confidence > min_confidence:
                             recognized_chars.append(predicted_char)
                             bounding_boxes.append((x, y, w, h))
+                            confidence_scores.append(confidence)
                     except Exception as e:
                         print(f"Error processing character region: {e}")
                         continue
 
             text = "".join(recognized_chars)
-            return (text, bounding_boxes) if return_bbox else text
+            if return_bbox:
+                return text, bounding_boxes, confidence_scores, has_content
+            else:
+                return text, confidence_scores, has_content
 
         except Exception as e:
             print(f"Error during OCR processing: {e}")
-            return ("", []) if return_bbox else ""
+            return ("", [], [], False) if return_bbox else ("", [], False)
 
     def visualize_results(
         self,
         image: np.ndarray,
         text: str,
         bounding_boxes: List[Tuple[int, int, int, int]],
+        confidence_scores: List[float] = None,
     ) -> np.ndarray:
         """
         Visualize OCR results by drawing bounding boxes and recognized text.
@@ -306,6 +321,7 @@ class OCRProcessor:
             image (np.ndarray): Original image.
             text (str): Recognized text.
             bounding_boxes (List[Tuple[int, int, int, int]]): List of bounding boxes.
+            confidence_scores (List[float], optional): Confidence scores for each character.
 
         Returns:
             np.ndarray: Image with drawn results.
@@ -320,16 +336,35 @@ class OCRProcessor:
         try:
             if self.font_path:
                 font = ImageFont.truetype(self.font_path, 22)
+                small_font = ImageFont.truetype(self.font_path, 16)
             else:
                 font = ImageFont.load_default()
+                small_font = ImageFont.load_default()
         except Exception as e:
             print(f"Font error: {e}")
             font = ImageFont.load_default()
+            small_font = ImageFont.load_default()
+
+        # Determine if we have confidence scores to display
+        has_confidence = confidence_scores and len(confidence_scores) == len(text)
 
         # Draw bounding boxes and labels
-        for (x, y, w, h), char in zip(bounding_boxes, text):
-            # Draw rectangle
-            draw.rectangle([(x, y), (x + w, y + h)], outline=(0, 255, 0), width=2)
+        for i, ((x, y, w, h), char) in enumerate(zip(bounding_boxes, text)):
+            # Determine color based on confidence (if available)
+            if has_confidence:
+                conf = confidence_scores[i]
+                # Color gradient from red (low) to yellow to green (high)
+                if conf < 0.3:  # Low confidence
+                    box_color = (255, 0, 0)  # Red
+                elif conf < 0.7:  # Medium confidence
+                    box_color = (255, 255, 0)  # Yellow
+                else:  # High confidence
+                    box_color = (0, 255, 0)  # Green
+            else:
+                box_color = (0, 255, 0)  # Default green if no confidence scores
+
+            # Draw rectangle with confidence-based color
+            draw.rectangle([(x, y), (x + w, y + h)], outline=box_color, width=2)
 
             # Calculate text position (above the box)
             text_bbox = draw.textbbox((0, 0), char, font=font)
@@ -338,7 +373,7 @@ class OCRProcessor:
 
             # Center text above box
             text_x = x + (w - text_width) // 2
-            text_y = max(0, y - text_height + 5)
+            text_y = max(0, y - text_height - 5)
 
             # Draw text with border for better visibility
             for dx, dy in [(-1, -1), (-1, 1), (1, -1), (1, 1)]:
@@ -346,6 +381,35 @@ class OCRProcessor:
 
             # Draw main text
             draw.text((text_x, text_y), char, font=font, fill=(255, 0, 0))
+
+            # Draw confidence value if available
+            if has_confidence:
+                conf_text = f"{confidence_scores[i]:.0%}"
+                conf_bbox = draw.textbbox((0, 0), conf_text, font=small_font)
+                conf_width = conf_bbox[2] - conf_bbox[0]
+
+                # Position confidence below the box
+                conf_x = x + (w - conf_width) // 2
+                conf_y = y + h - 15
+
+                # Draw confidence text with background for readability
+                text_bg_color = (50, 50, 50, 180)  # Semi-transparent dark background
+                conf_bg_padding = 2
+                draw.rectangle(
+                    [
+                        (conf_x - conf_bg_padding, conf_y - conf_bg_padding),
+                        (
+                            conf_x + conf_width + conf_bg_padding,
+                            conf_y + (conf_bbox[3] - conf_bbox[1]) + conf_bg_padding,
+                        ),
+                    ],
+                    fill=text_bg_color,
+                )
+
+                # Draw confidence value in white
+                draw.text(
+                    (conf_x, conf_y), conf_text, font=small_font, fill=(255, 255, 255)
+                )
 
         # Convert back to OpenCV format (RGB to BGR)
         result = cv2.cvtColor(np.array(pil_image), cv2.COLOR_RGB2BGR)
