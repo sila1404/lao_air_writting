@@ -510,37 +510,37 @@ class DrawingApp:
                 )
 
                 rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                results = self.hand_tracker.process_frame(rgb_frame)
+                self.hand_tracker.process_frame(rgb_frame)
 
-                if results.multi_hand_landmarks:
-                    for hand_landmark in results.multi_hand_landmarks:
-                        finger_x = int(hand_landmark.landmark[8].x * self.webcam_width)
-                        finger_y = int(hand_landmark.landmark[8].y * self.webcam_height)
+                landmarks = self.hand_tracker.get_latest_landmarks()
+                if landmarks:
+                    finger_x = int(landmarks[8].x * self.webcam_width)
+                    finger_y = int(landmarks[8].y * self.webcam_height)
 
-                        # Convert to canvas space
-                        canvas_coord = self.drawing_area.get_canvas_coordinates(
-                            finger_x, finger_y, self.drawing_canvas.canvas_size
-                        )
+                    # Convert to canvas space
+                    canvas_coord = self.drawing_area.get_canvas_coordinates(
+                        finger_x, finger_y, self.drawing_canvas.canvas_size
+                    )
 
-                        if canvas_coord:
-                            # Update current position on canvas
-                            self.drawing_canvas.update_tracking_position(canvas_coord)
+                    if canvas_coord:
+                        # Update current position on canvas
+                        self.drawing_canvas.update_tracking_position(canvas_coord)
 
-                            # Draw if index finger is pointing
-                            if not self.hand_tracker.is_hand_open(hand_landmark):
-                                if self.drawing_canvas.prev_point is not None:
-                                    self.drawing_canvas.draw_line(
-                                        self.drawing_canvas.prev_point, canvas_coord
-                                    )
-                                self.drawing_canvas.prev_point = canvas_coord
-                                self.drawing_canvas.update_drawing_position(
-                                    canvas_coord
+                        # Draw if index finger is pointing
+                        if not self.hand_tracker.is_hand_open(landmarks):
+                            if self.drawing_canvas.prev_point is not None:
+                                self.drawing_canvas.draw_line(
+                                    self.drawing_canvas.prev_point, canvas_coord
                                 )
-                            else:
-                                self.drawing_canvas.prev_point = None
+                            self.drawing_canvas.prev_point = canvas_coord
+                            self.drawing_canvas.update_drawing_position(
+                                canvas_coord
+                            )
+                        else:
+                            self.drawing_canvas.prev_point = None
 
-                        # Draw hand landmarks
-                        self.hand_tracker.draw_landmarks(frame, hand_landmark)
+                    # Draw hand landmarks
+                    self.hand_tracker.draw_landmarks(frame, landmarks)
                 else:
                     self.drawing_canvas.prev_point = None
                     self.drawing_canvas.current_pos = (
@@ -565,7 +565,7 @@ class DrawingApp:
                 self.canvas_label.image = canvas_image
 
         # Schedule next update
-        self.root.after(10, self.update)
+        self.root.after(100, self.update)
 
     def clear_canvas(self):
         self.drawing_canvas.clear()

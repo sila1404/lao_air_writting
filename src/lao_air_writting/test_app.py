@@ -498,32 +498,31 @@ class HandWritingPage:
 
                 # Process frame
                 rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                results = self.hand_tracker.process_frame(rgb_frame)
+                self.hand_tracker.process_frame(rgb_frame)
 
-                if results.multi_hand_landmarks:
-                    for hand_landmark in results.multi_hand_landmarks:
-                        # Get index finger tip coordinates
-                        finger_x = int(hand_landmark.landmark[8].x * self.webcam_width)
-                        finger_y = int(hand_landmark.landmark[8].y * self.webcam_height)
+                landmarks = self.hand_tracker.get_latest_landmarks()
+                if landmarks:
+                    finger_x = int(landmarks[8].x * self.webcam_width)
+                    finger_y = int(landmarks[8].y * self.webcam_height)
 
-                        # Get canvas coordinates
-                        canvas_coord = self.drawing_area.get_canvas_coordinates(
-                            finger_x, finger_y, self.drawing_canvas.canvas_size
-                        )
+                    # Get canvas coordinates
+                    canvas_coord = self.drawing_area.get_canvas_coordinates(
+                        finger_x, finger_y, self.drawing_canvas.canvas_size
+                    )
 
-                        if canvas_coord:
-                            self.drawing_canvas.update_tracking_position(canvas_coord)
+                    if canvas_coord:
+                        self.drawing_canvas.update_tracking_position(canvas_coord)
 
-                            if not self.hand_tracker.is_hand_open(hand_landmark):
-                                if self.drawing_canvas.prev_point is not None:
-                                    self.drawing_canvas.draw_line(
-                                        self.drawing_canvas.prev_point, canvas_coord
-                                    )
-                                self.drawing_canvas.prev_point = canvas_coord
-                            else:
-                                self.drawing_canvas.prev_point = None
+                        if not self.hand_tracker.is_hand_open(landmarks):
+                            if self.drawing_canvas.prev_point is not None:
+                                self.drawing_canvas.draw_line(
+                                    self.drawing_canvas.prev_point, canvas_coord
+                                )
+                            self.drawing_canvas.prev_point = canvas_coord
+                        else:
+                            self.drawing_canvas.prev_point = None
 
-                        self.hand_tracker.draw_landmarks(frame, hand_landmark)
+                    self.hand_tracker.draw_landmarks(frame, landmarks)
 
                 # Update camera display
                 camera_image = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
@@ -547,7 +546,6 @@ class HandWritingPage:
                 2,  # Thickness
             )
 
-            # Add "Camera Off" text
             cv2.putText(
                 display_frame,
                 "Camera Off",
@@ -591,7 +589,7 @@ class HandWritingPage:
                 if self.canvas_has_content():
                     self.recognize_character()
 
-        self.frame.after(10, self.update)
+        self.frame.after(100, self.update)
 
     def clear_canvas(self):
         self.drawing_canvas.clear()

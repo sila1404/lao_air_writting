@@ -1,73 +1,63 @@
+from mediapipe.tasks.python import vision, BaseOptions
+from mediapipe import ImageFormat
 import mediapipe as mp
+import cv2
+import time
 
 
 class HandTracker:
     def __init__(self):
-        self.mp_hands = mp.solutions.hands
-        self.mp_draw = mp.solutions.drawing_utils
-        self.hands = self.mp_hands.Hands(
-            min_detection_confidence=0.5, min_tracking_confidence=0.5
+        self._latest_landmarks = None
+        self.frame_counter = 0
+
+        base_options = BaseOptions(model_asset_path="src/assets/hand_landmarker.task")
+        options = vision.HandLandmarkerOptions(
+            base_options=base_options,
+            running_mode=vision.RunningMode.LIVE_STREAM,
+            num_hands=1,
+            result_callback=self._on_result,
         )
+        self.detector = vision.HandLandmarker.create_from_options(options)
 
-    def is_index_finger_up(self, hand_landmarks):
-        index_tip = hand_landmarks.landmark[8].y
-        index_dip = hand_landmarks.landmark[7].y
-        index_pip = hand_landmarks.landmark[6].y
-        index_mcp = hand_landmarks.landmark[5].y
-
-        middle_tip = hand_landmarks.landmark[12].y
-        ring_tip = hand_landmarks.landmark[16].y
-        pinky_tip = hand_landmarks.landmark[20].y
-
-        index_up = index_tip < index_dip < index_pip < index_mcp
-        other_down = all(
-            [
-                middle_tip > index_pip,
-                ring_tip > index_pip,
-                pinky_tip > index_pip,
-            ]
-        )
-
-        return index_up and other_down
-
-    def is_hand_open(self, hand_landmarks):
-        # Get y-coordinates for all finger tips and their respective PIPs
-        thumb_tip = hand_landmarks.landmark[4].y
-        thumb_ip = hand_landmarks.landmark[3].y
-
-        index_tip = hand_landmarks.landmark[8].y
-        index_pip = hand_landmarks.landmark[6].y
-
-        middle_tip = hand_landmarks.landmark[12].y
-        middle_pip = hand_landmarks.landmark[10].y
-
-        ring_tip = hand_landmarks.landmark[16].y
-        ring_pip = hand_landmarks.landmark[14].y
-
-        pinky_tip = hand_landmarks.landmark[20].y
-        pinky_pip = hand_landmarks.landmark[18].y
-
-        # Check if all fingers are extended (tip is above pip)
-        all_fingers_up = all(
-            [
-                thumb_tip < thumb_ip,  # Thumb is up
-                index_tip < index_pip,  # Index is up
-                middle_tip < middle_pip,  # Middle is up
-                ring_tip < ring_pip,  # Ring is up
-                pinky_tip < pinky_pip,  # Pinky is up
-            ]
-        )
-
-        return all_fingers_up
+    def _on_result(
+        self,
+        result: vision.HandLandmarkerResult,
+        output_image: mp.Image,
+        timestamp_ms: int,
+    ):
+        if result.hand_landmarks:
+            self._latest_landmarks = result.hand_landmarks[0]
+        else:
+            self._latest_landmarks = None
 
     def process_frame(self, frame):
-        return self.hands.process(frame)
+        mp_image = mp.Image(image_format=ImageFormat.SRGB, data=frame)
+        timestamp_ms = int(time.time() * 1000)
+        self.detector.detect_async(mp_image, timestamp_ms)
 
-    def draw_landmarks(self, frame, hand_landmarks):
-        self.mp_draw.draw_landmarks(
-            frame,
-            hand_landmarks,
-            self.mp_hands.HAND_CONNECTIONS,
-            self.mp_draw.DrawingSpec(color=(0, 0, 255), thickness=2),
-            self.mp_draw.DrawingSpec(color=(0, 255, 0), thickness=2),
+    def draw_landmarks(self, frame, landmarks):
+        if not landmarks:
+            return
+        h, w, _ = frame.shape
+        for connection in mp.solutions.hands.HAND_CONNECTIONS:
+            start = landmarks[connection[0]]
+            end = landmarks[connection[1]]
+            x0, y0 = int(start.x * w), int(start.y * h)
+            x1, y1 = int(end.x * w), int(end.y * h)
+            cv2.line(frame, (x0, y0), (x1, y1), (0, 255, 0), 2)
+        for lm in landmarks:
+            cx, cy = int(lm.x * w), int(lm.y * h)
+            cv2.circle(frame, (cx, cy), 4, (0, 0, 255), -1)
+
+    def is_hand_open(self, landmarks):
+        return all(
+            [
+                landmarks[8].y < landmarks[6].y,
+                landmarks[12].y < landmarks[10].y,
+                landmarks[16].y < landmarks[14].y,
+                landmarks[20].y < landmarks[18].y,
+            ]
         )
+
+    def get_latest_landmarks(self):
+        return self._latest_landmarks
