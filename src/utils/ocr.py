@@ -1,9 +1,8 @@
 import cv2
 import numpy as np
-from typing import List, Tuple, Optional
+from typing import List, Tuple
 from .model import CharacterRecognitionModel
 from PIL import Image, ImageDraw, ImageFont
-import os
 
 
 class OCRProcessor:
@@ -35,18 +34,7 @@ class OCRProcessor:
         self.cluster_distance_threshold: int = 10
 
         # Load font
-        possible_fonts = [
-            "src\\assets\\fonts\\Phetsarath_OT.ttf",
-            "C:\\Windows\\Fonts\\Phetsarath_OT.ttf",
-            "\\usr\\share\\fonts\\truetype\\lao\\Phetsarath_OT.ttf",
-            os.path.join(os.path.dirname(__file__), "fonts", "Phetsarath_OT.ttf"),
-        ]
-
-        self.font_path: Optional[str] = None
-        for font in possible_fonts:
-            if os.path.exists(font):
-                self.font_path = font
-                break
+        self.font_path = "src/assets/fonts/Phetsarath_OT.ttf"
 
         if self.font_path is None:
             print("Warning: No suitable font found. Text display may be limited.")
