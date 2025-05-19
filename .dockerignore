@@ -1,0 +1,22 @@
+# pixi environments
+.pixi
+*.egg-info
+.env
+**/*.pyc
+**/__pycache__/
+
+# image datasets directory
+augmented_images/
+test_datasets/
+train_datasets/
+val_datasets/
+datasets/
+
+eval/
+cache/
+**/augment_image/
+**/collect_data/
+
+**/lao_air_writting/evaluate_model.py
+**/lao_air_writting/test_app.py
+**/lao_air_writting/train_model.py
