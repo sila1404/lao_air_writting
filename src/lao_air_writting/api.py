@@ -1,11 +1,26 @@
-from fastapi import FastAPI, File, UploadFile, HTTPException, BackgroundTasks, Query
+from fastapi import (
+    FastAPI,
+    File,
+    UploadFile,
+    HTTPException,
+    BackgroundTasks,
+    Query,
+    Body,
+)
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import numpy as np
 import cv2
 import logging
-from utils import OCRProcessor
+import asyncio
 import time
+from pydantic import BaseModel, EmailStr, Field
+from typing import Optional, List
+import pymongo
+from pymongo.mongo_client import MongoClient
+from pymongo.server_api import ServerApi
+import os
+from datetime import datetime, timezone
 
 # Configure logging
 logging.basicConfig(
@@ -14,172 +29,306 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Global variables for model instances
+# --- Environment Variables for MongoDB ---
+MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017/")
+MONGO_DB_NAME = os.getenv("MONGO_DB_NAME", "laoAirWritingDB")
+MONGO_FEEDBACK_COLLECTION = os.getenv("MONGO_FEEDBACK_COLLECTION", "feedback")
+
+# Global variables for model instances and DB client
 ocr_processor = None
+db_client: Optional[MongoClient] = None
+db = None
 
 # Constants
 MAX_IMAGE_SIZE = 10 * 1024 * 1024  # 10MB
 ALLOWED_FORMATS = ["image/jpeg", "image/png", "image/bmp", "image/tiff"]
 
 
+# --- Pydantic Models ---
+class OCRResult(BaseModel):
+    text: str
+    bounding_boxes: Optional[List[dict]] = None
+    confidence_scores: List[float]
+    has_content: bool
+
+
+class PredictResponse(BaseModel):
+    success: bool
+    result: OCRResult
+    processing_time_seconds: float
+
+
+class HealthResponse(BaseModel):
+    status: str
+    ocr_processor_loaded: bool
+    mongodb_connected: bool
+    version: str
+
+
+class FeedbackData(BaseModel):
+    name: Optional[str] = Field(None, max_length=100)
+    email: Optional[EmailStr] = Field(None, max_length=100)
+    rating: Optional[int] = Field(None, ge=1, le=5)
+    category: Optional[str] = Field(None, max_length=50)
+    comments: str = Field(..., min_length=10, max_length=2000)
+
+
+class FeedbackResponse(BaseModel):
+    success: bool
+    message: str
+    feedback_id: Optional[str] = None
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: Initialize models when the application starts
-    global ocr_processor
+    # Startup: Initialize models and DB connection
+    global ocr_processor, db_client, db
+
+    # --- OCR Model Loading ---
+    async def load_model_background():
+        global ocr_processor
+        try:
+            logger.info("Importing OCR components...")
+            from utils import OCRProcessor
+
+            logger.info("Initializing OCR model...")
+            ocr_processor_instance = await asyncio.to_thread(OCRProcessor)
+            ocr_processor = ocr_processor_instance
+            logger.info("OCR Model initialized successfully")
+        except ImportError:
+            logger.error("Failed to import OCRProcessor from utils.")
+            ocr_processor = None
+        except Exception as e:
+            logger.error(f"Error initializing OCR model: {e}")
+            ocr_processor = None
+
+    asyncio.create_task(load_model_background())
+
+    # --- MongoDB Connection ---
+    logger.info("Attempting to connect to MongoDB...")
     try:
-        logger.info("Initializing OCR model...")
-        ocr_processor = OCRProcessor()
-        logger.info("Models initialized successfully")
+        db_client = MongoClient(MONGO_URI, server_api=ServerApi("1"))
+        # Send a ping to confirm a successful connection
+        db_client.admin.command("ping")
+        db = db_client[MONGO_DB_NAME]
+        logger.info("Successfully connected to MongoDB!")
     except Exception as e:
-        logger.error(f"Error initializing models: {e}")
-        # Even though initialization failed, we still start the app
-        # The health endpoint will report the failure
+        logger.error(f"Failed to connect to MongoDB: {e}")
+        db_client = None
+        db = None
 
-    yield  # Server is running and handling requests
+    yield  # Server is running
 
-    # Cleanup: Release resources when the application is shutting down
+    # Cleanup: Release resources
     logger.info("Shutting down and releasing resources...")
     ocr_processor = None
+
+    if db_client:
+        logger.info("Closing MongoDB connection...")
+        db_client.close()
+        logger.info("MongoDB connection closed.")
 
 
 # Pass the lifespan context manager to FastAPI
 app = FastAPI(
-    title="OCR API",
-    description="API for optical character recognition",
-    version="1.0.0",
+    title="Lao Air Writing OCR & Feedback API",
+    description="API for Lao air writing optical character recognition and user feedback.",
+    version="0.0.3",
     lifespan=lifespan,
 )
 
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, replace with specific origins
+    allow_origins=["*"],
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
 
 
 def validate_image(file: UploadFile) -> bool:
-    # Check file size
     if file.size and file.size > MAX_IMAGE_SIZE:
         raise HTTPException(
-            status_code=400,
+            status_code=413,
             detail=f"File too large. Maximum size allowed is {MAX_IMAGE_SIZE / (1024 * 1024)}MB",
         )
-
-    # Check content type
     if file.content_type not in ALLOWED_FORMATS:
         raise HTTPException(
-            status_code=400,
+            status_code=415,
             detail=f"Unsupported file format. Allowed formats: {', '.join(ALLOWED_FORMATS)}",
         )
-
     return True
 
 
-def log_request(image_name: str, prediction: str, processing_time: float):
-    """Log request details for monitoring purposes"""
+def log_request_details(
+    image_name: Optional[str], prediction_text: str, processing_time: float
+):
+    log_image_name = image_name if image_name else "N/A"
     logger.info(
-        f"Processed image '{image_name}' in {processing_time:.2f}s with result: {prediction[:50]}..."
+        f"Processed image '{log_image_name}' in {processing_time:.4f}s. Prediction: {prediction_text[:100]}..."
     )
 
 
-@app.post("/predict")
+@app.post("/api/predict", response_model=PredictResponse)
 async def predict_character(
     background_tasks: BackgroundTasks,
     image: UploadFile = File(...),
     return_bbox: bool = Query(False, description="Whether to return bounding boxes"),
     min_confidence: float = Query(
-        0.1, description="Minimum confidence threshold", ge=0.0, le=1.0
+        0.1, description="Minimum confidence threshold for OCR", ge=0.0, le=1.0
     ),
 ):
     start_time = time.time()
 
-    # Check if model is loaded
-    if not ocr_processor:
+    if ocr_processor is None:
+        logger.error("OCR model not available for /api/predict endpoint.")
         raise HTTPException(
             status_code=503,
-            detail="OCR model not initialized. Please check health endpoint for status.",
+            detail="Service temporarily unavailable: OCR model is not initialized. Please try again shortly.",
         )
 
-    # Validate image
-    try:
-        validate_image(image)
-    except HTTPException as e:
-        logger.warning(f"Validation error: {e.detail}")
-        raise
+    validate_image(image)
 
     try:
-        # Read the image
         contents = await image.read()
         nparr = np.frombuffer(contents, np.uint8)
         img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
 
-        # Check if image was successfully decoded
         if img is None:
+            logger.warning(f"Could not decode image: {image.filename}")
             raise HTTPException(
-                status_code=400,
-                detail="Could not decode image. Please ensure it's a valid image file.",
+                status_code=400, detail="Invalid image format or corrupted file."
             )
 
-        # Process the image with proper return value handling
+        # Run synchronous OCR processing in a separate thread
+        recognition_result = await asyncio.to_thread(
+            ocr_processor.recognize_text,
+            img,
+            return_bbox=return_bbox,
+            min_confidence=min_confidence,
+        )
+
         if return_bbox:
-            text, bboxes, confidence_scores, has_content = ocr_processor.recognize_text(
-                img, return_bbox=True, min_confidence=min_confidence
-            )
-            # Convert bounding boxes to a serializable format
+            text, bboxes, confidence_scores, has_content = recognition_result
             bboxes_serializable = [
                 {"x": int(x), "y": int(y), "width": int(w), "height": int(h)}
                 for x, y, w, h in bboxes
             ]
-            result = {
+            result_data = {
                 "text": text,
                 "bounding_boxes": bboxes_serializable,
                 "confidence_scores": [float(c) for c in confidence_scores],
                 "has_content": has_content,
             }
         else:
-            text, confidence_scores, has_content = ocr_processor.recognize_text(
-                img, return_bbox=False, min_confidence=min_confidence
-            )
-            result = {
+            text, confidence_scores, has_content = recognition_result
+            result_data = {
                 "text": text,
                 "confidence_scores": [float(c) for c in confidence_scores],
                 "has_content": has_content,
             }
 
-        # Calculate processing time
-        processing_time = time.time() - start_time
+        ocr_result_obj = OCRResult(**result_data)
 
-        # Log request details in the background
-        background_tasks.add_task(log_request, image.filename, text, processing_time)
-
-        return {
-            "success": True,
-            "result": result,
-            "processing_time_seconds": processing_time,
-        }
-
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Error processing image: {str(e)}")
-        # Generic error to avoid exposing system details
+        logger.exception(f"Critical error processing image {image.filename}: {e}")
         raise HTTPException(
             status_code=500,
-            detail="Error processing image. Please try again or contact support if the issue persists.",
+            detail="An internal server error occurred during image processing.",
         )
     finally:
-        # Reset file pointer in case we need to read it again
-        await image.seek(0)
+        await image.close()
+
+    processing_time = time.time() - start_time
+    background_tasks.add_task(
+        log_request_details, image.filename, ocr_result_obj.text, processing_time
+    )
+
+    return PredictResponse(
+        success=True,
+        result=ocr_result_obj,
+        processing_time_seconds=round(processing_time, 4),
+    )
 
 
-@app.get("/health")
+@app.post("/api/feedback", response_model=FeedbackResponse)
+async def submit_feedback(feedback: FeedbackData = Body(...)):
+    global db  # Access the global db instance
+    if db is None or db_client is None:  # Check if MongoDB connection was successful
+        logger.error("Failed to submit feedback: MongoDB is not connected.")
+        raise HTTPException(
+            status_code=503,
+            detail="Service temporarily unavailable: Cannot store feedback at the moment.",
+        )
+
+    try:
+        feedback_dict = feedback.model_dump(exclude_none=True)
+        feedback_dict["submitted_at"] = datetime.now(
+            timezone.utc
+        )  # Add a UTC timestamp
+
+        # Get the feedback collection
+        feedback_collection = db[MONGO_FEEDBACK_COLLECTION]
+
+        # Insert the feedback document
+        insert_result = await asyncio.to_thread(
+            feedback_collection.insert_one, feedback_dict
+        )
+
+        feedback_id = str(insert_result.inserted_id)
+        logger.info(f"Feedback stored successfully with ID: {feedback_id}")
+
+        return FeedbackResponse(
+            success=True,
+            message="Feedback submitted successfully! Thank you.",
+            feedback_id=feedback_id,
+        )
+    except pymongo.errors.ConnectionFailure as e:
+        logger.error(f"MongoDB ConnectionFailure while storing feedback: {e}")
+        raise HTTPException(
+            status_code=503,
+            detail="Database connection error. Could not store feedback.",
+        )
+    except Exception as e:
+        logger.exception(f"Failed to store feedback in MongoDB: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail="Could not store feedback due to an internal server error.",
+        )
+
+
+@app.get("/health", response_model=HealthResponse)
 async def health_check():
-    """Health check endpoint for monitoring"""
-    status = "healthy" if ocr_processor is not None else "degraded"
+    global db_client
+    ocr_is_ready = ocr_processor is not None
+    mongodb_is_connected = False
+    if db_client:
+        try:
+            db_client.admin.command("ping")
+            mongodb_is_connected = True
+        except pymongo.errors.ConnectionFailure:
+            logger.warning("Health check: MongoDB connection ping failed.")
+            mongodb_is_connected = False
+        except Exception as e:
+            logger.warning(f"Health check: MongoDB status check error: {e}")
+            mongodb_is_connected = False
 
-    return {
-        "status": status,
-        "ocr_processor_loaded": ocr_processor is not None,
-        "version": "1.0.0",
-    }
+    current_status = "healthy"
+    if not ocr_is_ready:
+        current_status = "degraded"
+        logger.warning("Health check: OCR processor not loaded.")
+    if not mongodb_is_connected:
+        current_status = (
+            "degraded" if current_status == "healthy" else current_status
+        )  # Keep degraded if already set
+        logger.warning("Health check: MongoDB not connected.")
+
+    return HealthResponse(
+        status=current_status,
+        ocr_processor_loaded=ocr_is_ready,
+        mongodb_connected=mongodb_is_connected,
+        version=app.version,
+    )
