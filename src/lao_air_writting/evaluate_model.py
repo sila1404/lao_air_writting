@@ -61,7 +61,7 @@ def evaluate_model():
     print("\nClassification Report:")
     os.makedirs("eval", exist_ok=True)
     report_path = "eval/evaluation_report.txt"
-    with open(report_path, "w") as f:
+    with open(report_path, "w", encoding="utf-8") as f:
         f.write(
             classification_report(
                 y_test, y_pred, target_names=label_names, zero_division=0
