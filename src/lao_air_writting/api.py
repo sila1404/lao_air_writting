@@ -300,7 +300,7 @@ async def submit_feedback(feedback: FeedbackData = Body(...)):
         )
 
 
-@app.get("/health", response_model=HealthResponse)
+@app.get("/api/health", response_model=HealthResponse)
 async def health_check():
     global db_client
     ocr_is_ready = ocr_processor is not None
