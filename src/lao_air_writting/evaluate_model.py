@@ -13,7 +13,7 @@ def evaluate_model():
 
     # Initialize model and load weights
     model = CharacterRecognitionModel()
-    if not model.load_model(use_quantize_model=True):
+    if not model.load_model(use_quantize_model=False):
         print("Failed to load model")
     else:
         print("Model loaded")
