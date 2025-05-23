@@ -55,7 +55,7 @@ class CharacterRecognitionModel:
                 layers.Dropout(0.5),
                 layers.Dense(512, activation="relu"),
                 layers.BatchNormalization(),
-                layers.Dropout(0.5),
+                layers.Dropout(0.6),
                 layers.Dense(num_classes, activation="softmax"),
             ]
         )
@@ -129,7 +129,7 @@ class CharacterRecognitionModel:
         # Create and compile model
         num_classes = len(self.label_map)
         self.model = self.create_cnn_model(num_classes)
-        optimizer = keras.optimizers.AdamW(learning_rate=5e-3, weight_decay=1e-3)
+        optimizer = keras.optimizers.AdamW(learning_rate=1e-3, weight_decay=1e-2)
         self.model.compile(
             optimizer=optimizer,
             loss="sparse_categorical_crossentropy",
