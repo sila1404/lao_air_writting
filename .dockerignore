@@ -20,5 +20,3 @@ cache/
 **/lao_air_writting/evaluate_model.py
 **/lao_air_writting/test_app.py
 **/lao_air_writting/train_model.py
-
-**/model/hand_drawn_character_model.keras
