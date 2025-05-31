@@ -17,7 +17,7 @@ def train_new_model():
         print("Starting model training...")
         print(f"Using dataset from: {dataset_path}")
 
-        history = model.train(data_dir=dataset_path, val_dir="val_datasets", epochs=250, batch_size=48)
+        history = model.train(data_dir=dataset_path, val_dir="val_datasets", epochs=20, batch_size=48)
 
         print("\nModel training completed!")
 

@@ -5,7 +5,7 @@ import cv2
 import numpy as np
 import os
 import json
-from typing import Optional, Dict, Tuple, List, Any
+from typing import Optional, Dict, Tuple, List
 
 
 class CharacterRecognitionModel:
@@ -16,9 +16,6 @@ class CharacterRecognitionModel:
         self.model: Optional[keras.Model] = None
         self.label_map: Optional[Dict[str, int]] = None
         self.history: Optional[keras.callbacks.History] = None
-        self.interpreter: Optional[tf.lite.Interpreter] = None
-        self.input_details: Optional[List[Dict[str, Any]]] = None
-        self.output_details: Optional[List[Dict[str, Any]]] = None
 
     def create_cnn_model(self, num_classes: int) -> keras.Model:
         """
@@ -35,27 +32,22 @@ class CharacterRecognitionModel:
             [
                 Input(shape=(128, 128, 1)),
                 # First Convolutional Block
-                layers.Conv2D(64, (5, 5), activation="relu"),
+                layers.Conv2D(8, (5, 5), activation="relu"),
                 layers.BatchNormalization(),
                 layers.MaxPooling2D((2, 2)),
                 # Second Convolutional Block
-                layers.Conv2D(128, (3, 3), activation="relu"),
+                layers.Conv2D(16, (3, 3), activation="relu"),
                 layers.BatchNormalization(),
                 layers.MaxPooling2D((2, 2)),
                 # Third Convolutional Block
-                layers.Conv2D(256, (3, 3), activation="relu"),
-                layers.BatchNormalization(),
-                layers.MaxPooling2D((2, 2)),
-                # Forth Convolutional Block
-                layers.Conv2D(512, (3, 3), activation="relu"),
+                layers.Conv2D(32, (3, 3), activation="relu"),
                 layers.BatchNormalization(),
                 layers.MaxPooling2D((2, 2)),
                 # Flatten and Dense Layers
                 layers.Flatten(),
-                layers.Dropout(0.5),
-                layers.Dense(512, activation="relu"),
+                layers.Dense(64, activation="relu"),
                 layers.BatchNormalization(),
-                layers.Dropout(0.6),
+                layers.Dropout(0.3),
                 layers.Dense(num_classes, activation="softmax"),
             ]
         )
@@ -114,13 +106,13 @@ class CharacterRecognitionModel:
             callbacks.extend(
                 [
                     keras.callbacks.EarlyStopping(
-                        monitor="val_loss", patience=16, restore_best_weights=True
+                        monitor="val_loss", patience=7, restore_best_weights=True
                     ),
                     keras.callbacks.ReduceLROnPlateau(
                         monitor="val_loss",
                         factor=0.2,  # Reduce learning rate by a factor of 20
-                        patience=7,  # Reduce if val_loss doesn't improve for 7 epochs
-                        min_lr=1e-6,  # Minimum learning rate
+                        patience=3,  # Reduce if val_loss doesn't improve for 3 epochs
+                        min_lr=4e-5,  # Minimum learning rate
                         verbose=1,
                     ),
                 ]
@@ -129,9 +121,8 @@ class CharacterRecognitionModel:
         # Create and compile model
         num_classes = len(self.label_map)
         self.model = self.create_cnn_model(num_classes)
-        optimizer = keras.optimizers.AdamW(learning_rate=1e-3, weight_decay=1e-2)
         self.model.compile(
-            optimizer=optimizer,
+            optimizer="Adam",
             loss="sparse_categorical_crossentropy",
             metrics=["accuracy"],
         )
@@ -166,8 +157,6 @@ class CharacterRecognitionModel:
 
         self.model.save(model_path, save_format="h5")
 
-        self.convert_to_tflite()
-
         # Save training history as JSON
         if self.history is not None:
             # Convert any NumPy types to native Python types
@@ -181,65 +170,10 @@ class CharacterRecognitionModel:
             with open(history_path, "w", encoding="utf-8") as f:
                 json.dump(history_data, f, indent=2)
 
-    def convert_to_tflite(
-        self,
-        model_path: str = "model/hand_drawn_character_model.keras",
-        quantized_path: str = "model/hand_drawn_character_model_quant.tflite",
-    ):
-        """
-        Converts the Keras model to a quantized TFLite model.
-
-        Args:
-            model_path (str, optional): Path to the Keras model file.
-            quantized_path (str, optional): Path to save the quantized TFLite model.
-        """
-        if not os.path.exists(model_path):
-            print(f" Error: Model file not found at {model_path}")
-            return
-
-        try:
-            model = tf.keras.models.load_model(model_path)
-            print(f"Successfully loaded Keras model from: {model_path}")
-
-            original_size = os.path.getsize(model_path) / (1024 * 1024)
-
-            converter = tf.lite.TFLiteConverter.from_keras_model(model)
-
-            # Key changes for float16 quantization:
-            converter.optimizations = [tf.lite.Optimize.DEFAULT]
-            converter.target_spec.supported_types = [tf.float16]
-
-            print("Starting TFLite model conversion with float16 quantization...")
-            tflite_model_quantized = converter.convert()
-            print("Model conversion successful.")
-
-            os.makedirs(os.path.dirname(quantized_path), exist_ok=True)
-            with open(quantized_path, "wb") as f:
-                f.write(tflite_model_quantized)
-
-            quantized_size = os.path.getsize(quantized_path) / (1024 * 1024)
-
-            print(f" Quantized float16 TFLite model saved to: {quantized_path}")
-            print(f"Original model size: {original_size:.2f} MB")
-            print(f"Quantized float16 model size: {quantized_size:.2f} MB")
-            reduction_abs = original_size - quantized_size
-            reduction_perc = (
-                (reduction_abs / original_size) * 100 if original_size > 0 else 0
-            )
-            print(f"Size reduction: {reduction_abs:.2f} MB ({reduction_perc:.2f}%)")
-
-        except Exception as e:
-            print(f"Error during TFLite float16 conversion: {e}")
-            import traceback
-
-            traceback.print_exc()
-
     def load_model(
         self,
         model_path: str = "model/hand_drawn_character_model.keras",
         label_map_path: str = "model/label_map.json",
-        tflite_model_path: str = "model/hand_drawn_character_model_quant.tflite",
-        use_quantize_model: bool = True,
     ) -> bool:
         """
         Loads a trained model and corresponding label map.
@@ -247,8 +181,6 @@ class CharacterRecognitionModel:
         Args:
             model_path (str, optional): Path to model file.
             label_map_path (str, optional): Path to label map JSON.
-            tflite_model_path (str, optional): Path to TFLite model file.
-            use_quantize_model (bool, optional): Whether to use quantized model. Defaults to True.
 
         Returns:
             bool: True if loading is successful, False otherwise.
@@ -257,33 +189,19 @@ class CharacterRecognitionModel:
             with open(label_map_path, "r", encoding="utf-8") as f:
                 self.label_map = json.load(f)
 
-            if use_quantize_model:
-                self.interpreter = tf.lite.Interpreter(model_path=tflite_model_path)
-                self.interpreter.allocate_tensors()
-
-                # Get input and output tensor details for easier access during prediction
-                self.input_details = self.interpreter.get_input_details()
-                self.output_details = self.interpreter.get_output_details()
-
-                print("Successfully loaded TFLite model")
-                return True
-            else:
-                self.model = keras.models.load_model(model_path)
-                print("Successfully loaded Keras model")
-                return True
+            self.model = keras.models.load_model(model_path)
+            print("Successfully loaded Keras model")
+            return True
         except Exception as e:
             print(f"❌ Error loading model: {e}")
             return False
 
-    def predict(
-        self, canvas: np.ndarray, use_quantize_model: bool = True
-    ) -> Tuple[Optional[str], float]:
+    def predict(self, canvas: np.ndarray) -> Tuple[Optional[str], float]:
         """
         Predicts the character from a given image.
 
         Args:
             canvas (np.ndarray): Input image array (grayscale or BGR).
-            use_quantize_model (bool, optional): Whether to use quantized model. Defaults to True.
 
         Returns:
             Tuple[Optional[str], float]: Predicted label and confidence score.
@@ -305,28 +223,13 @@ class CharacterRecognitionModel:
         # Normalize the image
         img = img / 255.0
 
-        if use_quantize_model:
-            # Prepare input for TFLite model (add batch and channel dimensions)
-            img = np.expand_dims(img, axis=[0, -1]).astype(np.float32)
+        # Prepare input for Keras model (add batch and channel dimensions)
+        img = np.expand_dims(img, axis=[0, -1])
 
-            # Set input tensor
-            self.interpreter.set_tensor(self.input_details[0]["index"], img)
-
-            # Run inference
-            self.interpreter.invoke()
-
-            # Get output tensor
-            prediction = self.interpreter.get_tensor(self.output_details[0]["index"])
-            predicted_class = np.argmax(prediction[0])
-            confidence = prediction[0][predicted_class]
-        else:
-            # Prepare input for Keras model (add batch and channel dimensions)
-            img = np.expand_dims(img, axis=[0, -1])
-
-            # Make prediction
-            prediction = self.model.predict(img, verbose=0)
-            predicted_class = np.argmax(prediction[0])
-            confidence = prediction[0][predicted_class]
+        # Make prediction
+        prediction = self.model.predict(img, verbose=0)
+        predicted_class = np.argmax(prediction[0])
+        confidence = prediction[0][predicted_class]
 
         # Map the predicted class to the corresponding label
         reverse_label_map = {
@@ -417,7 +320,9 @@ class CharacterRecognitionModel:
                 pass
 
         if shuffle_data:
-            dataset = dataset.shuffle(1800)  # Shuffle only if requested
+            dataset = dataset.shuffle(
+                buffer_size=len(file_paths)
+            )  # Shuffle only if requested
 
         dataset = dataset.prefetch(tf.data.AUTOTUNE)
 

@@ -74,6 +74,6 @@ for subfolder in subfolders:
         )
 
     completed_subfolders += 1
-    print(f"Processed {completed_subfolders}/{total_subfolders} subfolders.")
+    print(f"\rProcessed {completed_subfolders}/{total_subfolders} subfolders.", end="")
 
 print("Dataset split completed successfully.")

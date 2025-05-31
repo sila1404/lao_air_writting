@@ -12,8 +12,6 @@ class OCRProcessor:
         self,
         model_path: str = "model/hand_drawn_character_model.keras",
         label_map_path: str = "model/label_map.json",
-        tflite_model_path: str = "model/hand_drawn_character_model_quant.tflite",
-        use_quantize_model: bool = True,
     ) -> None:
         """
         Initializes the character recognition processor with a trained model and label map.
@@ -21,18 +19,12 @@ class OCRProcessor:
         Args:
             model_path (str): Path to the full-precision Keras model (.keras or .h5 format).
             label_map_path (str): Path to the JSON file that maps class indices to character labels.
-            tflite_model_path (str): Path to the quantized TFLite model file (for optimized inference).
-            use_quantize_model (bool): If True, loads and uses the quantized TFLite model for prediction.
-                                    If False, uses the full-precision Keras model.
 
         Raises:
             RuntimeError: If model or label map loading fails.
         """
-        self.use_quantize_model = use_quantize_model
         self.recognizer = CharacterRecognitionModel()
-        if not self.recognizer.load_model(
-            model_path, label_map_path, tflite_model_path, self.use_quantize_model
-        ):
+        if not self.recognizer.load_model(model_path, label_map_path):
             raise RuntimeError("Failed to load character recognition model")
 
         # Parameters optimized for Lao script
@@ -282,9 +274,7 @@ class OCRProcessor:
 
                     try:
                         char_input = self.prepare_char_image(char_region)
-                        predicted_char, confidence = self.recognizer.predict(
-                            char_input, self.use_quantize_model
-                        )
+                        predicted_char, confidence = self.recognizer.predict(char_input)
 
                         # Include all results above min_confidence
                         if confidence > min_confidence:

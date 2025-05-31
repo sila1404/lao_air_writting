@@ -100,12 +100,12 @@ def augment_images(input_folder: str, output_folder: str) -> None:
     print(f"Found {total_images} images to augment.")
 
     aug_iterations = {
-        "rotated": 5,
-        "width_shifted": 5,
-        "height_shifted": 5,
-        "zoomed": 5,
-        "blur": 5,
-        "motion_blur": 5,
+        "rotated": 10,
+        "width_shifted": 10,
+        "height_shifted": 10,
+        "zoomed": 10,
+        "blur": 10,
+        "motion_blur": 10,
         "perspective": 10,
     }
 
