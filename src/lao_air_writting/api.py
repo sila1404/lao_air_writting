@@ -334,13 +334,25 @@ async def generate_tts(request: TTSRequest):
         sampling_rate = tts_models["model"].config.sampling_rate
         audio_numpy = output.squeeze().cpu().numpy()
 
+        # --- AMPLIFY AND NORMALIZE AUDIO ---
+        max_val = np.max(np.abs(audio_numpy))
+        if max_val > 0:
+            # Normalize to the range [-1.0, 1.0]
+            normalized_audio = audio_numpy / max_val
+            # Scale to 16-bit integer range and convert type
+            # We scale to 95% of max value to leave a little headroom and prevent clipping
+            audio_amplified = np.int16(normalized_audio * 32767 * 0.95)
+        else:
+            # The audio is silent, just ensure it's the correct type
+            audio_amplified = audio_numpy.astype(np.int16)
+
         logger.info(
-            f"Successfully generated audio waveform of length {len(audio_numpy)}."
+            f"Successfully generated and amplified audio waveform of length {len(audio_amplified)}."
         )
 
         # --- Save to In-Memory Buffer ---
         buffer = io.BytesIO()
-        scipy.io.wavfile.write(buffer, rate=sampling_rate, data=audio_numpy)
+        scipy.io.wavfile.write(buffer, rate=sampling_rate, data=audio_amplified)
         buffer.seek(0)
 
         # --- Return Streaming Response ---
