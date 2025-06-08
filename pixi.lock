@@ -207,6 +207,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/linux-64/pydantic-core-2.33.2-py311hdae7d1d_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/pygments-2.19.1-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/pymongo-4.11-py311hfdbb021_0.conda
+      - conda: https://conda.anaconda.org/conda-forge/noarch/pyngrok-7.2.9-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/pyparsing-3.2.3-pyhd8ed1ab_1.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/python-3.11.12-h9e4cc4f_0_cpython.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/python-dateutil-2.9.0.post0-pyhff2d567_1.conda
@@ -1859,7 +1860,7 @@ packages:
 - pypi: .
   name: lao-air-writting
   version: 0.1.0
-  sha256: a1d93919b4236f4bb9d45ff41c53fe70ef95cf184c9bfb55d74f033825e422fc
+  sha256: 03d9cbf3683ab7ecfe4af4eb1639c1afcc22162c7a75b50e06e03085ba5d7d95
   requires_dist:
   - certifi
   - mediapipe>=0.10.14,<0.11
@@ -4447,6 +4448,18 @@ packages:
   - pkg:pypi/pymongo?source=hash-mapping
   size: 2177099
   timestamp: 1738113612906
+- conda: https://conda.anaconda.org/conda-forge/noarch/pyngrok-7.2.9-pyhd8ed1ab_0.conda
+  sha256: b2ace6284a5ca212d3b310f88c606132d46982db5ca357dc361ae8cb04c36ee5
+  md5: 0e7755379517424d642e38349e6efa17
+  depends:
+  - python >=3.9
+  - pyyaml >=5.1
+  license: MIT
+  license_family: MIT
+  purls:
+  - pkg:pypi/pyngrok?source=hash-mapping
+  size: 27182
+  timestamp: 1748456180340
 - conda: https://conda.anaconda.org/conda-forge/noarch/pyparsing-3.2.3-pyhd8ed1ab_1.conda
   sha256: b92afb79b52fcf395fd220b29e0dd3297610f2059afac45298d44e00fcbf23b6
   md5: 513d3c262ee49b54a8fec85c5bc99764
