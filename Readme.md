@@ -49,16 +49,25 @@ All required dependencies are managed in pyproject.toml:
 
 -   pypi dependency
     ```toml
-    dependencies = ["mediapipe>=0.10.14,<0.11", "tensorflow>=2.14.0,<3"]
+    dependencies = [
+    "certifi",
+    "mediapipe>=0.10.14,<0.11",
+    "tensorflow>=2.19.0,<3",
+    "python-dotenv>=1.1.0,<2",
+    "torch>=2.7.1,<3",
+    "transformers>=4.52.4,<5",
+    "accelerate>=1.7.0,<2",
+    ]
     ```
 -   conda dependency
     ```toml
     [tool.pixi.dependencies]
-    opencv = ">=4.10.0,<5"
+    opencv = ">=4.11.0,<5"
     numpy = "<2"
-    scikit-learn = ">=1.6.0,<2"
-    pillow = ">=11.0.0,<12"
+    pillow = ">=11.1.0,<12"
     seaborn = ">=0.13.2,<0.14"
+    scikit-learn = ">=1.6.1,<2"
+    albumentations = ">=2.0.5,<3"
     ```
 
 ## Usage
@@ -174,11 +183,12 @@ The character recognition model uses a Convolutional Neural Network (CNN) archit
 -   Implement local text-to-speech processing
 -   Improve GUI interface
 
-## Author
+## Authors
 
-Silamany HOMPHASATHANE & Phongsavan SENGOKPADITH  
+Silamany HOMPHASATHANE & Phongsavanh SENGOKPADITH   
 Computer Science Department  
-National University of Lao
+Faculty of Natural Sciences  
+National University of Laos
 
 ## Acknowledgements
 
