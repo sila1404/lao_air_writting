@@ -12,6 +12,10 @@ This project is a Bachelor's thesis in Computer Science that implements a Lao ch
 -   Text-to-Speech conversion through API integration
 -   User-friendly GUI interface built with Tkinter
 
+### Demo
+
+![Lao Air-Writing Demo](src/assets/application_demo.gif)
+
 ## Installation
 
 ### Prerequisites
