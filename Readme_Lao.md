@@ -4,6 +4,10 @@
 
 ໂຄງການນີ້ແມ່ນບົດຈົບຊັ້ນປະລິນຍາຕີ ສາຂາວິທະຍາສາດຄອມພິວເຕີ ທີ່ພັດທະນາລະບົບການຮັບຮູ້ຕົວອັກສອນລາວໂດຍໃຊ້ທ່າທາງການຂຽນດ້ວຍມືເທິງອາກາດ ແລະ ແປງຂໍ້ຄວາມທີ່ຮັບຮູ້ໄດ້ເປັນສຽງເວົ້າ. ລະບົບນີ້ໃຊ້ Computer Vision ສຳລັບການຕິດຕາມມື ແລະ ການຮັບຮູ້ທ່າທາງ, Deep Learning (CNN) ສຳລັບການຮັບຮູ້ຕົວອັກສອນ, ແລະ ເຊື່ອມຕໍ່ກັບ Text-to-Speech API ສຳລັບການອອກສຽງ.
 
+## ລະບົບປະຕິບັດການທີ່ຕ້ອງໃຊ້
+
+**ລະບົບປະຕິບັດການ**: Linux (64-bit) - ໂຄງການນີ້ຖືກອອກແບບມາສະເພາະສຳລັບສະພາບແວດລ້ອມ Linux ແລະ ຕ້ອງການ dependencies ທີ່ສະເພາະເຈາະຈົງກັບ Linux.
+
 ### ຄຸນສົມບັດຫຼັກ
 
 -   ການຕິດຕາມທ່າທາງມືແບບ Real-time ສຳລັບການຂຽນເທິງອາກາດ
@@ -16,6 +20,20 @@
 
 ![Lao Air-Writing Demo](src/assets/application_demo.gif)
 
+## ໂຄງສ້າງຂອງໂຄງການ
+
+```md
+/
+├── datasets/              # ຊຸດຂໍ້ມູນສຳລັບເຝິກ ແລະ ທົດສອບ (ດາວໂຫຼດແຍກຕ່າງຫາກ)
+├── model/                 # ແບບຈຳລອງທີ່ເຝິກແລ້ວ ແລະ ໄຟລ໌ທີ່ກ່ຽວຂ້ອງ
+├── src/
+│   ├── assets/            # ໄຟລ໌ (Fonts, Demo, MediaPipe models)
+│   ├── augment_image/     # ເຄື່ອງມືສຳລັບການເພີ່ມຂໍ້ມູນຮູບພາບ (Data Augmentation)
+│   ├── collect_data/      # ໜ້າຕ່າງສຳລັບການເກັບກຳຂໍ້ມູນ
+│   ├── lao_air_writting/  # ໂມດູນຫຼັກຂອງແອັບພລິເຄຊັນ
+│   └── utils/             # ໂມດູນຊ່ວຍເຫຼືອ ແລະ ຟັງຊັນຕ່າງໆ
+```
+
 ## ການຕິດຕັ້ງ
 
 ### ສິ່ງທີ່ຕ້ອງມີກ່ອນ
@@ -26,16 +44,9 @@
 
 1.  ຕິດຕັ້ງ pixi ຖ້າທ່ານຍັງບໍ່ທັນມີ:
 
-    -   Windows:
-
-        ```bash
-        powershell -ExecutionPolicy ByPass -c "irm -useb https://pixi.sh/install.ps1 | iex"
-        ```
-
-    -   Linux & MacOS:
-        ```bash
-        curl -fsSL https://pixi.sh/install.sh | sh
-        ```
+    ```bash
+    curl -fsSL https://pixi.sh/install.sh | sh
+    ```
 
 2.  Clone repository:
 
@@ -48,6 +59,8 @@
     ```bash
     pixi install
     ```
+  
+4. ດາວໂຫຼດຊຸດຂໍ້ມູນ (ເບິ່ງໃນພາກ [ຊຸດຂໍ້ມູນ](#ຊຸດຂໍ້ມູນ))
 
 Dependencies ທີ່ຈຳເປັນທັງໝົດຖືກຈັດການໃນໄຟລ໌ `pyproject.toml`:
 
@@ -73,6 +86,15 @@ Dependencies ທີ່ຈຳເປັນທັງໝົດຖືກຈັດກ�
     scikit-learn = ">=1.6.1,<2"
     albumentations = ">=2.0.5,<3"
     ```
+  
+## ຊຸດຂໍ້ມູນ
+
+ຊຸດຂໍ້ມູນສຳລັບການເຝິກ ແລະ ທົດສອບແບບຈຳລອງສາມາດດາວໂຫຼດໄດ້ຈາກແຫຼ່ງຕໍ່ໄປນີ້:
+
+- **Hugging Face**: https://huggingface.co/datasets/silamany/lao-character-images
+- **Kaggle**: https://www.kaggle.com/datasets/silamany/lao-characters
+
+ຫຼັງຈາກດາວໂຫຼດແລ້ວ, ໃຫ້ແຕກໄຟລ໌ຊຸດຂໍ້ມູນລົງໃນໂຟເດີ datasets/ ທີ່ຢູ່ໃນ root directory ຂອງໂຄງການ.
 
 ## ການນຳໃຊ້
 
@@ -179,13 +201,6 @@ pixi install
 -   ຫຼາຍຊັ້ນ Convolutional ແລະ Pooling
 -   ຊັ້ນ Dense ສຳລັບການຈັດປະເພດ
 -   ຊັ້ນ Output ສຳລັບການຮັບຮູ້ຕົວອັກສອນລາວ
-
-## ການປັບປຸງໃນອະນາຄົດ
-
--   ເພີ່ມຄວາມຖືກຕ້ອງໃນການຮັບຮູ້
--   ເພີ່ມການຮອງຮັບການຂຽນແບບຕໍ່ເນື່ອງ
--   ພັດທະນາການປະມວນຜົນ Text-to-Speech ແບບ Local
--   ປັບປຸງໜ້າຕ່າງຕິດຕໍ່ຜູ້ໃຊ້ (GUI)
 
 ## ຜູ້ຂຽນ
 

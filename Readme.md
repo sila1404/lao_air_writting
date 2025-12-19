@@ -4,6 +4,10 @@
 
 This project is a Bachelor's thesis in Computer Science that implements a Lao character recognition system using air hand writing gestures and converts the recognized text to speech. The system uses Computer Vision for hand tracking and gesture recognition, Deep Learning (CNN) for character recognition, and integrates with a Text-to-Speech API for voice output.
 
+## System Requirements
+
+**Operating System**: Linux (64-bit) - This project is specifically designed for Linux environments and requires Linux-specific dependencies.
+
 ### Key Features
 
 -   Real-time hand gesture tracking for air writing
@@ -16,6 +20,20 @@ This project is a Bachelor's thesis in Computer Science that implements a Lao ch
 
 ![Lao Air-Writing Demo](src/assets/application_demo.gif)
 
+## Project Structure
+
+```md
+/
+├── datasets/              # Training and testing datasets (download separately)
+├── model/                 # Trained models and related files
+├── src/
+│   ├── assets/            # Static assets (fonts, demo files, MediaPipe models)
+│   ├── augment_image/     # Data augmentation utilities
+│   ├── collect_data/      # Data collection interface
+│   ├── lao_air_writting/  # Core application modules
+│   └── utils/             # Utility modules and helper functions
+```
+
 ## Installation
 
 ### Prerequisites
@@ -26,16 +44,9 @@ This project is a Bachelor's thesis in Computer Science that implements a Lao ch
 
 1. Install pixi if you haven't already:
 
-    - Windows:
-
-        ```bash
-        powershell -ExecutionPolicy ByPass -c "irm -useb https://pixi.sh/install.ps1 | iex"
-        ```
-
-    - Linux & MacOS:
-        ```bash
-        curl -fsSL https://pixi.sh/install.sh | sh
-        ```
+    ```bash
+    curl -fsSL https://pixi.sh/install.sh | sh
+    ```
 
 2. Clone the repository:
 
@@ -48,6 +59,8 @@ This project is a Bachelor's thesis in Computer Science that implements a Lao ch
     ```bash
     pixi install
     ```
+
+4. Download the dataset (see [Dataset](#dataset) section below)
 
 All required dependencies are managed in pyproject.toml:
 
@@ -73,6 +86,15 @@ All required dependencies are managed in pyproject.toml:
     scikit-learn = ">=1.6.1,<2"
     albumentations = ">=2.0.5,<3"
     ```
+
+## Dataset
+
+The dataset for training and testing the model can be downloaded from the following sources:
+
+- **Hugging Face**: https://huggingface.co/datasets/silamany/lao-character-images
+- **Kaggle**: https://www.kaggle.com/datasets/silamany/lao-characters
+
+After downloading, extract the dataset into the `datasets/` folder in the project root directory.
 
 ## Usage
 
@@ -179,13 +201,6 @@ The character recognition model uses a Convolutional Neural Network (CNN) archit
 -   Multiple convolutional and pooling layers
 -   Dense layers for classification
 -   Output layer for Lao character recognition
-
-## Future Improvements
-
--   Enhance recognition accuracy
--   Add support for continuous writing
--   Implement local text-to-speech processing
--   Improve GUI interface
 
 ## Authors
 

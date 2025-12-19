@@ -1,6 +1,6 @@
 import tensorflow as tf
-import keras
-from keras import layers, models, Input
+import tensorflow.keras as keras
+from tensorflow.keras import layers, models, Input
 import cv2
 import numpy as np
 import os
