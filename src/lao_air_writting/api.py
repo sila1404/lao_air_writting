@@ -23,7 +23,6 @@ from pymongo.mongo_client import MongoClient
 from pymongo.server_api import ServerApi
 import os
 from datetime import datetime, timezone
-from pyngrok import ngrok
 from transformers import AutoTokenizer, VitsModel
 import torch
 import scipy.io.wavfile
@@ -100,19 +99,6 @@ async def lifespan(app: FastAPI):
     # Startup: Initialize models and DB connection
     global ocr_processor, tts_models, db_client, db
 
-    # --- NGROK SETUP ---
-    # Set auth token from environment variable
-    ngrok_auth_token = os.getenv("NGROK_TOKEN")
-    if ngrok_auth_token:
-        ngrok.set_auth_token(ngrok_auth_token)
-
-    # Start the ngrok tunnel
-    # The port (8000) should match the port uvicorn is running on
-    public_url = ngrok.connect(8000).public_url
-    logger.info(f"Ngrok tunnel established at: {public_url}")
-    app.state.public_url = public_url
-    # -------------------
-
     # --- OCR Model Loading ---
     async def load_model_background():
         global ocr_processor
@@ -172,9 +158,6 @@ async def lifespan(app: FastAPI):
         logger.info("Closing MongoDB connection...")
         db_client.close()
         logger.info("MongoDB connection closed.")
-
-    ngrok.disconnect(public_url)
-    logger.info("Ngrok tunnel disconnected.")
 
 
 # Pass the lifespan context manager to FastAPI
