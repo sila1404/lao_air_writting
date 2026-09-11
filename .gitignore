@@ -6,6 +6,9 @@
 
 __pycache__
 
+# local SQLite feedback database
+*.db
+
 # image datasets directory
 augmented_images
 test_datasets

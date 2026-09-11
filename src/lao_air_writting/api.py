@@ -18,9 +18,11 @@ import asyncio
 import time
 from pydantic import BaseModel, EmailStr, Field
 from typing import Optional, List
-import pymongo
-from pymongo.mongo_client import MongoClient
-from pymongo.server_api import ServerApi
+from sqlalchemy import create_engine, text, Column, Integer, String, Text, DateTime
+from sqlalchemy.engine import Engine
+from sqlalchemy.engine.url import make_url
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import declarative_base, sessionmaker, Session
 import os
 from datetime import datetime, timezone
 from transformers import AutoTokenizer, VitsModel
@@ -37,16 +39,33 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# --- Environment Variables for MongoDB ---
-MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017/")
-MONGO_DB_NAME = os.getenv("MONGO_DB_NAME", "laoAirWritingDB")
-MONGO_FEEDBACK_COLLECTION = os.getenv("MONGO_FEEDBACK_COLLECTION", "feedback")
+# --- Environment Variables for the feedback database ---
+# Defaults to a local SQLite file. Set DATABASE_URL to point at Postgres
+# instead, e.g. postgresql+psycopg2://user:password@host:5432/dbname
+SQLITE_DB_PATH = os.getenv("SQLITE_DB_PATH", "./lao_air_writing.db")
+DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{SQLITE_DB_PATH}")
+FEEDBACK_TABLE_NAME = os.getenv("FEEDBACK_TABLE_NAME", "feedback")
 
-# Global variables for model instances and DB client
+Base = declarative_base()
+
+
+class FeedbackRecord(Base):
+    __tablename__ = FEEDBACK_TABLE_NAME
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(100), nullable=True)
+    email = Column(String(100), nullable=True)
+    rating = Column(Integer, nullable=True)
+    category = Column(String(50), nullable=True)
+    comments = Column(Text, nullable=False)
+    submitted_at = Column(DateTime(timezone=True), nullable=False)
+
+
+# Global variables for model instances and DB engine/session factory
 ocr_processor = None
 tts_models = {}
-db_client: Optional[MongoClient] = None
-db = None
+db_engine: Optional[Engine] = None
+db_session_factory: Optional[sessionmaker] = None
 
 # Constants
 MAX_IMAGE_SIZE = 10 * 1024 * 1024  # 10MB
@@ -76,7 +95,7 @@ class TTSRequest(BaseModel):
 class HealthResponse(BaseModel):
     status: str
     ocr_processor_loaded: bool
-    mongodb_connected: bool
+    database_connected: bool
     version: str
 
 
@@ -97,7 +116,7 @@ class FeedbackResponse(BaseModel):
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup: Initialize models and DB connection
-    global ocr_processor, tts_models, db_client, db
+    global ocr_processor, tts_models, db_engine, db_session_factory
 
     # --- OCR Model Loading ---
     async def load_model_background():
@@ -132,18 +151,29 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"Failed to load model on startup: {e}")
 
-    # --- MongoDB Connection ---
-    logger.info("Attempting to connect to MongoDB...")
+    # --- Database Connection (SQLite by default, Postgres if DATABASE_URL is set) ---
+    safe_db_url = make_url(DATABASE_URL).render_as_string(hide_password=True)
+    logger.info(f"Attempting to connect to database: {safe_db_url}")
     try:
-        db_client = MongoClient(MONGO_URI, server_api=ServerApi("1"))
-        # Send a ping to confirm a successful connection
-        db_client.admin.command("ping")
-        db = db_client[MONGO_DB_NAME]
-        logger.info("Successfully connected to MongoDB!")
+        connect_args = (
+            {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
+        )
+        engine = create_engine(DATABASE_URL, connect_args=connect_args)
+
+        def init_db():
+            with engine.connect() as conn:
+                conn.execute(text("SELECT 1"))
+            Base.metadata.create_all(bind=engine)
+
+        await asyncio.to_thread(init_db)
+
+        db_engine = engine
+        db_session_factory = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+        logger.info("Successfully connected to the database!")
     except Exception as e:
-        logger.error(f"Failed to connect to MongoDB: {e}")
-        db_client = None
-        db = None
+        logger.error(f"Failed to connect to the database: {e}")
+        db_engine = None
+        db_session_factory = None
 
     yield  # Server is running
 
@@ -154,10 +184,10 @@ async def lifespan(app: FastAPI):
     logger.info("TTS resources cleared.")
     tts_models.clear()
 
-    if db_client:
-        logger.info("Closing MongoDB connection...")
-        db_client.close()
-        logger.info("MongoDB connection closed.")
+    if db_engine:
+        logger.info("Closing database connection...")
+        db_engine.dispose()
+        logger.info("Database connection closed.")
 
 
 # Pass the lifespan context manager to FastAPI
@@ -346,11 +376,22 @@ async def generate_tts(request: TTSRequest):
         raise HTTPException(status_code=500, detail="Failed to generate audio.")
 
 
+def _insert_feedback(session_factory: sessionmaker, feedback_dict: dict) -> int:
+    session: Session = session_factory()
+    try:
+        record = FeedbackRecord(**feedback_dict)
+        session.add(record)
+        session.commit()
+        session.refresh(record)
+        return record.id
+    finally:
+        session.close()
+
+
 @app.post("/api/feedback", response_model=FeedbackResponse)
 async def submit_feedback(feedback: FeedbackData = Body(...)):
-    global db  # Access the global db instance
-    if db is None or db_client is None:  # Check if MongoDB connection was successful
-        logger.error("Failed to submit feedback: MongoDB is not connected.")
+    if db_session_factory is None:  # Check if the database connection was successful
+        logger.error("Failed to submit feedback: database is not connected.")
         raise HTTPException(
             status_code=503,
             detail="Service temporarily unavailable: Cannot store feedback at the moment.",
@@ -362,30 +403,24 @@ async def submit_feedback(feedback: FeedbackData = Body(...)):
             timezone.utc
         )  # Add a UTC timestamp
 
-        # Get the feedback collection
-        feedback_collection = db[MONGO_FEEDBACK_COLLECTION]
-
-        # Insert the feedback document
-        insert_result = await asyncio.to_thread(
-            feedback_collection.insert_one, feedback_dict
+        feedback_id = await asyncio.to_thread(
+            _insert_feedback, db_session_factory, feedback_dict
         )
-
-        feedback_id = str(insert_result.inserted_id)
         logger.info(f"Feedback stored successfully with ID: {feedback_id}")
 
         return FeedbackResponse(
             success=True,
             message="Feedback submitted successfully! Thank you.",
-            feedback_id=feedback_id,
+            feedback_id=str(feedback_id),
         )
-    except pymongo.errors.ConnectionFailure as e:
-        logger.error(f"MongoDB ConnectionFailure while storing feedback: {e}")
+    except SQLAlchemyError as e:
+        logger.error(f"Database error while storing feedback: {e}")
         raise HTTPException(
             status_code=503,
             detail="Database connection error. Could not store feedback.",
         )
     except Exception as e:
-        logger.exception(f"Failed to store feedback in MongoDB: {e}")
+        logger.exception(f"Failed to store feedback in the database: {e}")
         raise HTTPException(
             status_code=500,
             detail="Could not store feedback due to an internal server error.",
@@ -394,33 +429,37 @@ async def submit_feedback(feedback: FeedbackData = Body(...)):
 
 @app.get("/api/health", response_model=HealthResponse)
 async def health_check():
-    global db_client
     ocr_is_ready = ocr_processor is not None
-    mongodb_is_connected = False
-    if db_client:
+    database_is_connected = False
+    engine = db_engine
+    if engine:
         try:
-            db_client.admin.command("ping")
-            mongodb_is_connected = True
-        except pymongo.errors.ConnectionFailure:
-            logger.warning("Health check: MongoDB connection ping failed.")
-            mongodb_is_connected = False
+            def ping():
+                with engine.connect() as conn:
+                    conn.execute(text("SELECT 1"))
+
+            await asyncio.to_thread(ping)
+            database_is_connected = True
+        except SQLAlchemyError:
+            logger.warning("Health check: database connection ping failed.")
+            database_is_connected = False
         except Exception as e:
-            logger.warning(f"Health check: MongoDB status check error: {e}")
-            mongodb_is_connected = False
+            logger.warning(f"Health check: database status check error: {e}")
+            database_is_connected = False
 
     current_status = "healthy"
     if not ocr_is_ready:
         current_status = "degraded"
         logger.warning("Health check: OCR processor not loaded.")
-    if not mongodb_is_connected:
+    if not database_is_connected:
         current_status = (
             "degraded" if current_status == "healthy" else current_status
         )  # Keep degraded if already set
-        logger.warning("Health check: MongoDB not connected.")
+        logger.warning("Health check: database not connected.")
 
     return HealthResponse(
         status=current_status,
         ocr_processor_loaded=ocr_is_ready,
-        mongodb_connected=mongodb_is_connected,
+        database_connected=database_is_connected,
         version=app.version,
     )

@@ -47,8 +47,12 @@ api = "uvicorn lao_air_writting.api:app"
 [tool.pixi.feature.api.dependencies]
 uvicorn = ">=0.34.2,<0.35"
 fastapi = ">=0.115.12,<0.116"
-pymongo = ">=4.11,<5"
+sqlalchemy = ">=2.0,<3"
 scipy = ">=1.15.2,<2"
+
+[tool.pixi.feature.postgres.dependencies]
+psycopg2-binary = ">=2.9,<3"
 
 [tool.pixi.environments]
 api = ["api"]
+api-postgres = ["api", "postgres"]
