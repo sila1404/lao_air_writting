@@ -1,5 +1,6 @@
 import time
-from utils import CharacterRecognitionModel, VisualizationManager
+from utils.model import CharacterRecognitionModel
+from utils.visualization import VisualizationManager
 import numpy as np
 from sklearn.metrics import classification_report
 import json

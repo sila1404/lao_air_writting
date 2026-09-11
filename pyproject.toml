@@ -6,18 +6,11 @@ requires-python = ">= 3.11, <3.12"
 version = "0.1.0"
 dependencies = [
   "certifi",
-  "mediapipe>=0.10.14,<0.11",
   "tensorflow>=2.19.0,<3",
   "python-dotenv>=1.1.0,<2",
-  "torch>=2.7.1,<3",
-  "transformers>=4.52.4,<5",
-  "accelerate>=1.7.0,<2",
   "opencv-python-headless>=4.11.0,<5",
   "numpy<2",
   "pillow>=11.1.0,<12",
-  "seaborn>=0.13.2,<0.14",
-  "scikit-learn>=1.6.1,<2",
-  "albumentations>=2.0.5,<3",
 ]
 
 [project.optional-dependencies]
@@ -25,11 +18,18 @@ api = [
   "uvicorn>=0.34.2,<0.35",
   "fastapi>=0.115.12,<0.116",
   "sqlalchemy>=2.0,<3",
-  "scipy>=1.15.2,<2",
   "email-validator>=2.0,<3",
   "python-multipart>=0.0.20,<0.1",
 ]
 postgres = ["psycopg2-binary>=2.9,<3"]
+# Hand tracking (collect_data, test_app) and training/eval tooling
+# (evaluate_model's confusion matrix, augment_image) - not needed by the API.
+local = [
+  "mediapipe>=0.10.14,<0.11",
+  "seaborn>=0.13.2,<0.14",
+  "scikit-learn>=1.6.1,<2",
+  "albumentations>=2.0.5,<3",
+]
 
 [build-system]
 build-backend = "hatchling.build"

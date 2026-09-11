@@ -4,7 +4,8 @@ from PIL import Image, ImageTk
 import cv2
 from datetime import datetime
 import os
-from utils import HandTracker, DrawingCanvas, DrawingArea
+from utils.hand_tracking import HandTracker
+from utils.drawing_util import DrawingCanvas, DrawingArea
 
 
 class DrawingApp:

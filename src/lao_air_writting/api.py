@@ -7,13 +7,11 @@ from fastapi import (
     Query,
     Body,
 )
-from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import numpy as np
 import cv2
 import logging
-import io
 import asyncio
 import time
 from pydantic import BaseModel, EmailStr, Field
@@ -25,9 +23,6 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import declarative_base, sessionmaker, Session
 import os
 from datetime import datetime, timezone
-from transformers import AutoTokenizer, VitsModel
-import torch
-import scipy.io.wavfile
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -63,7 +58,6 @@ class FeedbackRecord(Base):
 
 # Global variables for model instances and DB engine/session factory
 ocr_processor = None
-tts_models = {}
 db_engine: Optional[Engine] = None
 db_session_factory: Optional[sessionmaker] = None
 
@@ -84,12 +78,6 @@ class PredictResponse(BaseModel):
     success: bool
     result: OCRResult
     processing_time_seconds: float
-
-
-class TTSRequest(BaseModel):
-    text: str = Field(
-        ..., min_length=1, max_length=500, examples=["ສະບາຍດີ."]
-    )
 
 
 class HealthResponse(BaseModel):
@@ -133,14 +121,14 @@ class FeedbackListResponse(BaseModel):
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup: Initialize models and DB connection
-    global ocr_processor, tts_models, db_engine, db_session_factory
+    global ocr_processor, db_engine, db_session_factory
 
     # --- OCR Model Loading ---
     async def load_model_background():
         global ocr_processor
         try:
             logger.info("Importing OCR components...")
-            from utils import OCRProcessor
+            from utils.ocr import OCRProcessor
 
             logger.info("Initializing OCR model...")
             ocr_processor_instance = await asyncio.to_thread(OCRProcessor)
@@ -154,19 +142,6 @@ async def lifespan(app: FastAPI):
             ocr_processor = None
 
     asyncio.create_task(load_model_background())
-
-    # --- Loading TTS model ---
-    logger.info("Application startup: Loading TTS model...")
-    try:
-        device = "cuda" if torch.cuda.is_available() else "cpu"
-        tts_models["tokenizer"] = AutoTokenizer.from_pretrained("facebook/mms-tts-lao")
-        tts_models["model"] = VitsModel.from_pretrained("facebook/mms-tts-lao").to(
-            device
-        )
-        tts_models["device"] = device
-        logger.info(f"Model loaded successfully on device: {device}")
-    except Exception as e:
-        logger.error(f"Failed to load model on startup: {e}")
 
     # --- Database Connection (SQLite by default, Postgres if DATABASE_URL is set) ---
     safe_db_url = make_url(DATABASE_URL).render_as_string(hide_password=True)
@@ -198,9 +173,6 @@ async def lifespan(app: FastAPI):
     logger.info("Shutting down and releasing resources...")
     ocr_processor = None
 
-    logger.info("TTS resources cleared.")
-    tts_models.clear()
-
     if db_engine:
         logger.info("Closing database connection...")
         db_engine.dispose()
@@ -209,8 +181,8 @@ async def lifespan(app: FastAPI):
 
 # Pass the lifespan context manager to FastAPI
 app = FastAPI(
-    title="Lao Air Writing OCR & Text-to-Speech API",
-    description="API for Lao air writing optical character recognition and Lao text to speech.",
+    title="Lao Air Writing OCR API",
+    description="API for Lao air writing optical character recognition.",
     version="0.1.0",
     lifespan=lifespan,
 )
@@ -330,67 +302,6 @@ async def predict_character(
         result=ocr_result_obj,
         processing_time_seconds=round(processing_time, 4),
     )
-
-
-@app.post("/api/tts", response_class=StreamingResponse)
-async def generate_tts(request: TTSRequest):
-    """
-    Accepts Lao text and returns the generated audio in WAV format.
-    """
-    logger.info(f"Received TTS request for text: '{request.text[:30]}...'")
-
-    if "model" not in tts_models or "tokenizer" not in tts_models:
-        logger.error("Model is not loaded. Cannot process request.")
-        raise HTTPException(
-            status_code=503, detail="Model is not available. Please check server logs."
-        )
-
-    try:
-        # --- Tokenization ---
-        inputs = tts_models["tokenizer"](request.text, return_tensors="pt").to(
-            tts_models["device"]
-        )
-
-        # Define the synchronous inference function
-        def run_inference():
-            with torch.no_grad():
-                # This is the blocking part that needs to be in a separate thread
-                return tts_models["model"](**inputs).waveform
-
-        # --- Run synchronous inference in a separate thread ---
-        output = await asyncio.to_thread(run_inference)
-
-        # --- Prepare Audio Data ---
-        sampling_rate = tts_models["model"].config.sampling_rate
-        audio_numpy = output.squeeze().cpu().numpy()
-
-        # --- AMPLIFY AND NORMALIZE AUDIO ---
-        max_val = np.max(np.abs(audio_numpy))
-        if max_val > 0:
-            # Normalize to the range [-1.0, 1.0]
-            normalized_audio = audio_numpy / max_val
-            # Scale to 16-bit integer range and convert type
-            # We scale to 95% of max value to leave a little headroom and prevent clipping
-            audio_amplified = np.int16(normalized_audio * 32767 * 0.95)
-        else:
-            # The audio is silent, just ensure it's the correct type
-            audio_amplified = audio_numpy.astype(np.int16)
-
-        logger.info(
-            f"Successfully generated and amplified audio waveform of length {len(audio_amplified)}."
-        )
-
-        # --- Save to In-Memory Buffer ---
-        buffer = io.BytesIO()
-        scipy.io.wavfile.write(buffer, rate=sampling_rate, data=audio_amplified)
-        buffer.seek(0)
-
-        # --- Return Streaming Response ---
-        return StreamingResponse(buffer, media_type="audio/wav")
-
-    except Exception as e:
-        logger.error(f"An error occurred during TTS generation: {e}")
-        raise HTTPException(status_code=500, detail="Failed to generate audio.")
 
 
 def _insert_feedback(session_factory: sessionmaker, feedback_dict: dict) -> int:

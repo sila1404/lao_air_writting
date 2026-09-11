@@ -3,13 +3,10 @@ from tkinter import ttk, filedialog, messagebox, Scale
 from PIL import Image, ImageTk
 import cv2
 import numpy as np
-from utils import (
-    HandTracker,
-    DrawingCanvas,
-    DrawingArea,
-    CharacterRecognitionModel,
-    OCRProcessor,
-)
+from utils.hand_tracking import HandTracker
+from utils.drawing_util import DrawingCanvas, DrawingArea
+from utils.model import CharacterRecognitionModel
+from utils.ocr import OCRProcessor
 
 
 class TestApp:

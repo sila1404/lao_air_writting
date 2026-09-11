@@ -1,0 +1,16 @@
+.git
+.venv
+.pixi
+__pycache__
+*.pyc
+*.db
+.env
+
+# large local-only datasets, never needed for the API image
+datasets
+augmented_images
+train_datasets
+test_datasets
+val_datasets
+eval
+cache

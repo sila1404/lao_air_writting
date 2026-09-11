@@ -1,4 +1,4 @@
-from utils import CharacterRecognitionModel
+from utils.model import CharacterRecognitionModel
 import os
 
 

@@ -1,8 +1,8 @@
-# Lao Air-Writing and Text-to-Speech Using Deep Learning
+# Lao Air-Writing Using Deep Learning
 
 ## About The Project
 
-This project is a Bachelor's thesis in Computer Science that implements a Lao character recognition system using air hand writing gestures and converts the recognized text to speech. The system uses Computer Vision for hand tracking and gesture recognition, Deep Learning (CNN) for character recognition, and integrates with a Text-to-Speech API for voice output.
+This project is a Bachelor's thesis in Computer Science that implements a Lao character recognition system using air hand writing gestures. The system uses Computer Vision for hand tracking and gesture recognition and Deep Learning (CNN) for character recognition.
 
 ## System Requirements
 
@@ -13,7 +13,6 @@ This project is a Bachelor's thesis in Computer Science that implements a Lao ch
 - Real-time hand gesture tracking for air writing
 - Lao character recognition using Convolutional Neural Networks (CNN)
 - Support for both Lao vowels and consonants
-- Text-to-Speech conversion through API integration
 - User-friendly GUI interface built with Tkinter
 
 ### Demo
@@ -58,10 +57,10 @@ This project is a Bachelor's thesis in Computer Science that implements a Lao ch
 3. Install dependencies using uv:
 
     ```bash
-    uv sync
+    uv sync --extra local
     ```
 
-    Add `--extra api` (and `--extra postgres` if using Postgres for feedback storage) to also install the API server dependencies.
+    `--extra local` adds mediapipe/seaborn/scikit-learn/albumentations, needed for data collection, augmentation, training, and evaluation. If you only want to run the API server, use `--extra api` instead (and `--extra postgres` if using Postgres for feedback storage) — it skips the desktop/training-only dependencies.
 
 4. Download the dataset (see [Dataset](#dataset) section below)
 
@@ -70,18 +69,13 @@ All required dependencies are managed in pyproject.toml:
 ```toml
 dependencies = [
 "certifi",
-"mediapipe>=0.10.14,<0.11",
 "tensorflow>=2.19.0,<3",
 "python-dotenv>=1.1.0,<2",
 "torch>=2.7.1,<3",
 "transformers>=4.52.4,<5",
-"accelerate>=1.7.0,<2",
 "opencv-python-headless>=4.11.0,<5",
 "numpy<2",
 "pillow>=11.1.0,<12",
-"seaborn>=0.13.2,<0.14",
-"scikit-learn>=1.6.1,<2",
-"albumentations>=2.0.5,<3",
 ]
 ```
 
@@ -149,7 +143,6 @@ The project includes seven main commands for different stages of the process:
 
   - Evaluates the trained model's performance
   - Generates performance metrics and reports
-    uv run --extra api uvicorn lao_air_writting.api:app
 
 - Test Model
 
@@ -159,7 +152,6 @@ The project includes seven main commands for different stages of the process:
 
   - Launches the main application interface
   - Allows real-time character writing and recognition
-  - Includes text-to-speech functionality
 
 ### API Server
 
@@ -170,7 +162,7 @@ The project includes seven main commands for different stages of the process:
     ```
 
   - Launches the API server for Lao character recognition
-  - Provides endpoints for text recognition and text-to-speech conversion
+  - Provides endpoints for text recognition
   - Server runs on localhost (default port: 8000)
 
 ## Troubleshooting
@@ -188,7 +180,7 @@ rm -rf .venv
 Then, reinstall the dependencies:
 
 ```bash
-uv sync
+uv sync --extra local
 ```
 
 ## How It Works
@@ -196,7 +188,6 @@ uv sync
 - **Hand Tracking**: Uses MediaPipe for real-time hand landmark detection
 - **Character Drawing**: Tracks index finger movement to create character drawings
 - **Recognition**: Processes drawings through a trained CNN model
-- **Text-to-Speech**: Converts recognized characters to speech using API
 
 ## Model Architecture
 
