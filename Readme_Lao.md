@@ -38,14 +38,14 @@
 
 ### ສິ່ງທີ່ຕ້ອງມີກ່ອນ
 
--   pixi
+-   uv
 
 ### ການຕິດຕັ້ງ
 
-1.  ຕິດຕັ້ງ pixi ຖ້າທ່ານຍັງບໍ່ທັນມີ:
+1.  ຕິດຕັ້ງ uv ຖ້າທ່ານຍັງບໍ່ທັນມີ:
 
     ```bash
-    curl -fsSL https://pixi.sh/install.sh | sh
+    curl -LsSf https://astral.sh/uv/install.sh | sh
     ```
 
 2.  Clone repository:
@@ -55,37 +55,33 @@
     cd lao_air_writting
     ```
 
-3.  ຕິດຕັ້ງ dependencies ໂດຍໃຊ້ pixi:
+3.  ຕິດຕັ້ງ dependencies ໂດຍໃຊ້ uv:
     ```bash
-    pixi install
+    uv sync
     ```
+    ເພີ່ມ `--extra api` (ແລະ `--extra postgres` ຖ້າໃຊ້ Postgres ສຳລັບເກັບ feedback) ເພື່ອຕິດຕັ້ງ dependencies ຂອງ API server ນຳ.
   
 4. ດາວໂຫຼດຊຸດຂໍ້ມູນ (ເບິ່ງໃນພາກ [ຊຸດຂໍ້ມູນ](#ຊຸດຂໍ້ມູນ))
 
 Dependencies ທີ່ຈຳເປັນທັງໝົດຖືກຈັດການໃນໄຟລ໌ `pyproject.toml`:
 
--   pypi dependency
-    ```toml
-    dependencies = [
-    "certifi",
-    "mediapipe>=0.10.14,<0.11",
-    "tensorflow>=2.19.0,<3",
-    "python-dotenv>=1.1.0,<2",
-    "torch>=2.7.1,<3",
-    "transformers>=4.52.4,<5",
-    "accelerate>=1.7.0,<2",
-    ]
-    ```
--   conda dependency
-    ```toml
-    [tool.pixi.dependencies]
-    opencv = ">=4.11.0,<5"
-    numpy = "<2"
-    pillow = ">=11.1.0,<12"
-    seaborn = ">=0.13.2,<0.14"
-    scikit-learn = ">=1.6.1,<2"
-    albumentations = ">=2.0.5,<3"
-    ```
+```toml
+dependencies = [
+"certifi",
+"mediapipe>=0.10.14,<0.11",
+"tensorflow>=2.19.0,<3",
+"python-dotenv>=1.1.0,<2",
+"torch>=2.7.1,<3",
+"transformers>=4.52.4,<5",
+"accelerate>=1.7.0,<2",
+"opencv-python-headless>=4.11.0,<5",
+"numpy<2",
+"pillow>=11.1.0,<12",
+"seaborn>=0.13.2,<0.14",
+"scikit-learn>=1.6.1,<2",
+"albumentations>=2.0.5,<3",
+]
+```
   
 ## ຊຸດຂໍ້ມູນ
 
@@ -105,7 +101,7 @@ Dependencies ທີ່ຈຳເປັນທັງໝົດຖືກຈັດກ�
 -   ເກັບກຳຂໍ້ມູນ (Collect Data)
 
     ```bash
-    pixi run collect
+    uv run python src/collect_data/main.py
     ```
 
     -   ເປີດໜ້າຕ່າງສຳລັບການເກັບກຳຂໍ້ມູນ
@@ -114,7 +110,7 @@ Dependencies ທີ່ຈຳເປັນທັງໝົດຖືກຈັດກ�
 
 -   ເພີ່ມຂໍ້ມູນ (Augment Data)
     ```bash
-    pixi run augment
+    uv run python src/augment_image/main.py
     ```
     -   ທຳການເພີ່ມຂໍ້ມູນ (data augmentation) ໃສ່ຮູບພາບທີ່ເກັບກຳມາ
     -   ເພີ່ມຂະໜາດຂອງຊຸດຂໍ້ມູນຜ່ານການປ່ຽນແປງຮູບແບບຕ່າງໆ
@@ -125,7 +121,7 @@ Dependencies ທີ່ຈຳເປັນທັງໝົດຖືກຈັດກ�
 -   ແບ່ງຊຸດຂໍ້ມູນ (Split Dataset)
 
     ```bash
-    pixi run split
+    uv run python src/augment_image/split_data.py
     ```
 
     -   ແບ່ງຂໍ້ມູນທີ່ເກັບກຳມາອອກເປັນຊຸດຂໍ້ມູນສຳລັບເຝິກ (training) ແລະ ທົດສອບ (testing)
@@ -134,7 +130,7 @@ Dependencies ທີ່ຈຳເປັນທັງໝົດຖືກຈັດກ�
 -   ເຝິກແບບຈຳລອງ (Train Model)
 
     ```bash
-    pixi run train
+    uv run python src/lao_air_writting/train_model.py
     ```
 
     -   ເລີ່ມຕົ້ນຂະບວນການເຝິກແບບຈຳລອງ CNN
@@ -144,7 +140,7 @@ Dependencies ທີ່ຈຳເປັນທັງໝົດຖືກຈັດກ�
 -   ປະເມີນແບບຈຳລອງ (Evaluate Model)
 
     ```bash
-    pixi run eval
+    uv run python src/lao_air_writting/evaluate_model.py
     ```
 
     -   ປະເມີນປະສິດທິພາບຂອງແບບຈຳລອງທີ່ເຝິກແລ້ວ
@@ -152,7 +148,7 @@ Dependencies ທີ່ຈຳເປັນທັງໝົດຖືກຈັດກ�
 
 -   ທົດສອບແບບຈຳລອງ (Test Model)
     ```bash
-    pixi run test
+    uv run python src/lao_air_writting/test_app.py
     ```
     -   ເປີດໜ້າຕ່າງຫຼັກຂອງແອັບພລິເຄຊັນ
     -   ສາມາດຂຽນ ແລະ ຮັບຮູ້ຕົວອັກສອນແບບ Real-time
@@ -162,7 +158,7 @@ Dependencies ທີ່ຈຳເປັນທັງໝົດຖືກຈັດກ�
 
 -   ເລີ່ມ API Server
     ```bash
-    pixi run server
+    uv run --extra api uvicorn lao_air_writting.api:app
     ```
     -   ເປີດ API server ສໍາລັບການຮັບຮູ້ຕົວອັກສອນລາວ
     -   ສະຫນອງ endpoints ສໍາລັບການຮັບຮູ້ຂໍ້ຄວາມ ແລະການປ່ຽນຂໍ້ຄວາມເປັນສຽງເວົ້າ
@@ -174,16 +170,16 @@ Dependencies ທີ່ຈຳເປັນທັງໝົດຖືກຈັດກ�
 
 _ModuleNotFoundError: No module named 'certifi'_
 
-ທ່ານສາມາດແກ້ໄຂໄດ້ໂດຍການດໍາເນີນການຄໍາສັ່ງຕໍ່ໄປນີ້:
+ທ່ານສາມາດແກ້ໄຂໄດ້ໂດຍການລຶບ virtual environment:
 
 ```bash
-pixi clean
+rm -rf .venv
 ```
 
 ຈາກນັ້ນ, ຕິດຕັ້ງ dependencies ຄືນໃໝ່:
 
 ```bash
-pixi install
+uv sync
 ```
 
 ## ຫຼັກການເຮັດວຽກ

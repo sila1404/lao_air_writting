@@ -1,6 +1,6 @@
 
-# pixi environments
-.pixi
+# uv environment
+.venv
 *.egg-info
 .env
 

@@ -10,11 +10,11 @@ This project is a Bachelor's thesis in Computer Science that implements a Lao ch
 
 ### Key Features
 
--   Real-time hand gesture tracking for air writing
--   Lao character recognition using Convolutional Neural Networks (CNN)
--   Support for both Lao vowels and consonants
--   Text-to-Speech conversion through API integration
--   User-friendly GUI interface built with Tkinter
+- Real-time hand gesture tracking for air writing
+- Lao character recognition using Convolutional Neural Networks (CNN)
+- Support for both Lao vowels and consonants
+- Text-to-Speech conversion through API integration
+- User-friendly GUI interface built with Tkinter
 
 ### Demo
 
@@ -38,14 +38,14 @@ This project is a Bachelor's thesis in Computer Science that implements a Lao ch
 
 ### Prerequisites
 
--   pixi
+- uv
 
 ### Setup
 
-1. Install pixi if you haven't already:
+1. Install uv if you haven't already:
 
     ```bash
-    curl -fsSL https://pixi.sh/install.sh | sh
+    curl -LsSf https://astral.sh/uv/install.sh | sh
     ```
 
 2. Clone the repository:
@@ -55,44 +55,42 @@ This project is a Bachelor's thesis in Computer Science that implements a Lao ch
     cd lao_air_writting
     ```
 
-3. Install dependencies using pixi:
+3. Install dependencies using uv:
+
     ```bash
-    pixi install
+    uv sync
     ```
+
+    Add `--extra api` (and `--extra postgres` if using Postgres for feedback storage) to also install the API server dependencies.
 
 4. Download the dataset (see [Dataset](#dataset) section below)
 
 All required dependencies are managed in pyproject.toml:
 
--   pypi dependency
-    ```toml
-    dependencies = [
-    "certifi",
-    "mediapipe>=0.10.14,<0.11",
-    "tensorflow>=2.19.0,<3",
-    "python-dotenv>=1.1.0,<2",
-    "torch>=2.7.1,<3",
-    "transformers>=4.52.4,<5",
-    "accelerate>=1.7.0,<2",
-    ]
-    ```
--   conda dependency
-    ```toml
-    [tool.pixi.dependencies]
-    opencv = ">=4.11.0,<5"
-    numpy = "<2"
-    pillow = ">=11.1.0,<12"
-    seaborn = ">=0.13.2,<0.14"
-    scikit-learn = ">=1.6.1,<2"
-    albumentations = ">=2.0.5,<3"
-    ```
+```toml
+dependencies = [
+"certifi",
+"mediapipe>=0.10.14,<0.11",
+"tensorflow>=2.19.0,<3",
+"python-dotenv>=1.1.0,<2",
+"torch>=2.7.1,<3",
+"transformers>=4.52.4,<5",
+"accelerate>=1.7.0,<2",
+"opencv-python-headless>=4.11.0,<5",
+"numpy<2",
+"pillow>=11.1.0,<12",
+"seaborn>=0.13.2,<0.14",
+"scikit-learn>=1.6.1,<2",
+"albumentations>=2.0.5,<3",
+]
+```
 
 ## Dataset
 
 The dataset for training and testing the model can be downloaded from the following sources:
 
-- **Hugging Face**: https://huggingface.co/datasets/silamany/lao-character-images
-- **Kaggle**: https://www.kaggle.com/datasets/silamany/lao-characters
+- **Hugging Face**: <https://huggingface.co/datasets/silamany/lao-character-images>
+- **Kaggle**: <https://www.kaggle.com/datasets/silamany/lao-characters>
 
 After downloading, extract the dataset into the `datasets/` folder in the project root directory.
 
@@ -102,71 +100,78 @@ The project includes seven main commands for different stages of the process:
 
 ### Data Collection and Augmentation
 
--   Collect Data
+- Collect Data
 
     ```bash
-    pixi run collect
+    uv run python src/collect_data/main.py
     ```
 
-    -   Launches the data collection interface
-    -   Use hand gestures to write Lao characters
-    -   Characters are saved in respective vowel/consonant folders
+  - Launches the data collection interface
+  - Use hand gestures to write Lao characters
+  - Characters are saved in respective vowel/consonant folders
 
--   Augment Data
+- Augment Data
+
     ```bash
-    pixi run augment
+    uv run python src/augment_image/main.py
     ```
-    -   Performs data augmentation on collected images
-    -   Increases dataset size through various transformations
-    -   Helps improve model robustness
+
+  - Performs data augmentation on collected images
+  - Increases dataset size through various transformations
+  - Helps improve model robustness
 
 ### Model Training
 
--   Split Dataset
+- Split Dataset
 
     ```bash
-    pixi run split
+    uv run python src/augment_image/split_data.py
     ```
 
-    -   Splits the collected data into training and testing sets
-    -   Prepares data for model training
+  - Splits the collected data into training and testing sets
+  - Prepares data for model training
 
--   Train Model
+- Train Model
 
     ```bash
-    pixi run train
+    uv run python src/lao_air_writting/train_model.py
     ```
 
-    -   Initiates the CNN model training process
-    -   Uses the prepared training dataset
-    -   Saves the trained model
+  - Initiates the CNN model training process
+  - Uses the prepared training dataset
+  - Saves the trained model
 
--   Evaluate Model
+- Evaluate Model
 
     ```bash
-    pixi run eval
+    uv run python src/lao_air_writting/evaluate_model.py
     ```
 
-    -   Evaluates the trained model's performance
-    -   Generates performance metrics and reports
+  - Evaluates the trained model's performance
+  - Generates performance metrics and reports
+    uv run --extra api uvicorn lao_air_writting.api:app
 
--   Test Model
+- Test Model
+
     ```bash
-    pixi run test
+    uv run python src/lao_air_writting/test_app.py
     ```
-    -   Launches the main application interface
-    -   Allows real-time character writing and recognition
-    -   Includes text-to-speech functionality
+
+  - Launches the main application interface
+  - Allows real-time character writing and recognition
+  - Includes text-to-speech functionality
 
 ### API Server
 
--   Start API Server
+- Start API Server
+
     ```bash
-    pixi run api
+    uv run --extra api uvicorn lao_air_writting.api:app
     ```
-    -   Launches the API server for Lao character recognition
-    -   Provides endpoints for text recognition and text-to-speech conversion
-    -   Server runs on localhost (default port: 8000)
+
+  - Launches the API server for Lao character recognition
+  - Provides endpoints for text recognition and text-to-speech conversion
+  - Server runs on localhost (default port: 8000)
 
 ## Troubleshooting
 
@@ -174,52 +179,52 @@ If you encounter the following error:
 
 _ModuleNotFoundError: No module named 'certifi'_
 
-You can resolve it by running the following command:
+You can resolve it by removing the virtual environment:
 
 ```bash
-pixi clean
+rm -rf .venv
 ```
 
 Then, reinstall the dependencies:
 
 ```bash
-pixi install
+uv sync
 ```
 
 ## How It Works
 
--   **Hand Tracking**: Uses MediaPipe for real-time hand landmark detection
--   **Character Drawing**: Tracks index finger movement to create character drawings
--   **Recognition**: Processes drawings through a trained CNN model
--   **Text-to-Speech**: Converts recognized characters to speech using API
+- **Hand Tracking**: Uses MediaPipe for real-time hand landmark detection
+- **Character Drawing**: Tracks index finger movement to create character drawings
+- **Recognition**: Processes drawings through a trained CNN model
+- **Text-to-Speech**: Converts recognized characters to speech using API
 
 ## Model Architecture
 
 The character recognition model uses a Convolutional Neural Network (CNN) architecture:
 
--   Input layer for processing character images
--   Multiple convolutional and pooling layers
--   Dense layers for classification
--   Output layer for Lao character recognition
+- Input layer for processing character images
+- Multiple convolutional and pooling layers
+- Dense layers for classification
+- Output layer for Lao character recognition
 
 ## Authors
 
-Silamany HOMPHASATHANE & Phongsavanh SENGOKPADITH   
+Silamany HOMPHASATHANE & Phongsavanh SENGOKPADITH
 Computer Science Department  
 Faculty of Natural Sciences  
 National University of Laos
 
 ## Acknowledgements
 
--   Academic advisors
+- Academic advisors
 
-    -   Somsack INTHASONE, Ph.D.
-    -   Ms. Sommany LOUSAVONG
+  - Somsack INTHASONE, Ph.D.
+  - Ms. Sommany LOUSAVONG
 
--   Data Collection Volunteers  
+- Data Collection Volunteers  
     We extend our sincere gratitude to all volunteers who contributed their time and effort in providing handwriting samples for our dataset:
 
-    -   Students from the Computer Programming, Soutsaka Institute of Technology
-    -   Members of the Computer Science Department
+  - Students from the Computer Programming, Soutsaka Institute of Technology
+  - Members of the Computer Science Department
 
     Their contributions were essential in creating a diverse and comprehensive dataset for training our model.
