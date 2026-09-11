@@ -113,6 +113,23 @@ class FeedbackResponse(BaseModel):
     feedback_id: Optional[str] = None
 
 
+class FeedbackItem(BaseModel):
+    id: int
+    name: Optional[str] = None
+    email: Optional[str] = None
+    rating: Optional[int] = None
+    category: Optional[str] = None
+    comments: str
+    submitted_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class FeedbackListResponse(BaseModel):
+    count: int
+    items: List[FeedbackItem]
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup: Initialize models and DB connection
@@ -424,6 +441,42 @@ async def submit_feedback(feedback: FeedbackData = Body(...)):
         raise HTTPException(
             status_code=500,
             detail="Could not store feedback due to an internal server error.",
+        )
+
+
+def _list_feedback(session_factory: sessionmaker, limit: int, offset: int):
+    session: Session = session_factory()
+    try:
+        query = session.query(FeedbackRecord).order_by(FeedbackRecord.submitted_at.desc())
+        total = query.count()
+        items = query.offset(offset).limit(limit).all()
+        return total, items
+    finally:
+        session.close()
+
+
+@app.get("/api/feedback", response_model=FeedbackListResponse)
+async def get_feedback(
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+):
+    if db_session_factory is None:
+        logger.error("Failed to fetch feedback: database is not connected.")
+        raise HTTPException(
+            status_code=503,
+            detail="Service temporarily unavailable: Cannot fetch feedback at the moment.",
+        )
+
+    try:
+        total, items = await asyncio.to_thread(
+            _list_feedback, db_session_factory, limit, offset
+        )
+        return FeedbackListResponse(count=total, items=items)
+    except SQLAlchemyError as e:
+        logger.error(f"Database error while fetching feedback: {e}")
+        raise HTTPException(
+            status_code=503,
+            detail="Database connection error. Could not fetch feedback.",
         )
 
 
